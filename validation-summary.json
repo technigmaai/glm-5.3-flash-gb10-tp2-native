@@ -1,0 +1,84 @@
+{
+  "validated_on": "2026-10-03",
+  "hardware": "Two Linux ARM64 NVIDIA GB10 nodes; native TP2; one container per node",
+  "source_commit": "c748079d45e6e070b2acb108a91edfe52f4a7747",
+  "vllm_commit": "ddd6fbca148a867aad1fcab7ec72f582b9977db4",
+  "shared_settings": {
+    "api_port": 8000,
+    "max_model_len": 1047552,
+    "kv_cache_memory_bytes_per_gpu": 9663676416,
+    "kv_cache_dtype": "fp8_e4m3",
+    "images_per_prompt_limit": 32,
+    "video_per_prompt_limit": 0,
+    "display_memory_bytes_per_gpu": 1879048192
+  },
+  "profiles": {
+    "4096-C4": {
+      "max_num_batched_tokens": 4096,
+      "max_num_seqs": 4,
+      "kv_capacity_tokens": 1533757,
+      "smoke_checks_passed": 8,
+      "image_input": "passed; single image",
+      "concurrent_256_token_streams": {
+        "completed": 4,
+        "peak_running": 4,
+        "preemptions": 0,
+        "elapsed_seconds_range": [
+          9.45,
+          11.45
+        ]
+      },
+      "minimum_available_RAM_GiB": {
+        "head": 1.4019,
+        "worker": 4.4139
+      }
+    },
+    "6144-C6": {
+      "max_num_batched_tokens": 6144,
+      "max_num_seqs": 6,
+      "kv_capacity_tokens": 1524917,
+      "smoke_checks_passed": 8,
+      "image_input": "passed; single image",
+      "concurrent_256_token_streams": {
+        "completed": 6,
+        "peak_running": 6,
+        "preemptions": 0,
+        "elapsed_seconds_range": [
+          11.1,
+          14.67
+        ]
+      },
+      "larger_prefills_after_snapshot_restore": {
+        "submitted": 6,
+        "completed": 6,
+        "prompt_tokens_range": [
+          13792,
+          13930
+        ],
+        "output_tokens_each": 128,
+        "peak_running": 4,
+        "preemptions": 0,
+        "elapsed_seconds_range": [
+          29.01,
+          46.69
+        ]
+      },
+      "minimum_available_RAM_GiB_during_warm_checks": {
+        "head": 1.1535,
+        "worker": 2.7736
+      },
+      "cold_boot_caveat": "Initial uncached load used substantial swap; all six larger requests completed but one preemption was recorded. Cause unconfirmed."
+    }
+  },
+  "startup_port_guard": {
+    "SO_REUSEADDR": true,
+    "actual_listener_rejected_on_both_nodes": true,
+    "real_TIME_WAIT_accepted_on_both_nodes": true
+  },
+  "limitations": [
+    "Million-token context setting is not a completed million-token workload test.",
+    "Maximum image-count/resolution workloads have not been tested.",
+    "Basic workload checks do not determine the maximum safe KV pool or qualify production workloads.",
+    "Prefill queueing below MAX_NUM_SEQS is allowed by the batch token budget."
+  ]
+}

@@ -1,0 +1,556 @@
+{
+  "name": "${PROJECT_NAME:-glm53-native}",
+  "services": {
+    "glm53": {
+      "container_name": "${CONTAINER_NAME:-glm53-native}",
+      "devices": [
+        {
+          "source": "/dev/infiniband",
+          "target": "/dev/infiniband",
+          "permissions": "rwm"
+        },
+        {
+          "source": "/dev/dri/card0",
+          "target": "/dev/dri/card0",
+          "permissions": "rwm"
+        }
+      ],
+      "environment": {
+        "ALLOW_STOCK": "",
+        "API_PORT": "${API_PORT:-8000}",
+        "CONTAINER_NAME": "${CONTAINER_NAME:-glm53-native}",
+        "CUDAGRAPH_CAPTURE_SIZES": "",
+        "CUDAGRAPH_METRICS": "",
+        "DECODE_RESERVE_TOKENS": "",
+        "DFLASH_MODEL": "${DFLASH_MODEL:?Set DFLASH_MODEL in .env}",
+        "EXTRA_ARGS": "--mm-processor-cache-gb ${MM_PROCESSOR_CACHE_GB:-1} --scheduler-cls vllm.v1.core.sched.adaptive_k.AdaptiveKScheduler --served-model-name ${MODEL_ALIASES:-glm53 nvidia/GLM-5.3-Flash-NVFP4}",
+        "FABRIC_CHECK": "",
+        "FABRIC_SUBNETS": "${FABRIC_SUBNETS:?Set FABRIC_SUBNETS in .env}",
+        "FABRIC_WAIT_S": "180",
+        "GLM53_DISPLAY_KV_ENABLE": "${GLM53_DISPLAY_KV_ENABLE:-1}",
+        "GLM53_DISPLAY_KV_MIN_BYTES": "${GLM53_DISPLAY_KV_MIN_BYTES:-4294967296}",
+        "GPU_MEM_UTIL": "${GPU_MEM_UTIL:-0.88}",
+        "HEAD_HOST": "${HEAD_HOST:?Set HEAD_HOST in .env}",
+        "ITERATION_DETAILS": "",
+        "KV_CACHE_DTYPE": "",
+        "KV_CACHE_MEMORY": "${KV_CACHE_MEMORY:-8589934592}",
+        "LIMIT_MM": "${LIMIT_MM:?Set LIMIT_MM in .env}",
+        "LONG_PREFILL_TOKEN_THRESHOLD": "${LONG_PREFILL_TOKEN_THRESHOLD:-}",
+        "MAX_JOBS": "",
+        "MAX_MODEL_LEN": "${MAX_MODEL_LEN:-1047552}",
+        "MAX_NUM_BATCHED_TOKENS": "${MAX_NUM_BATCHED_TOKENS:-4096}",
+        "MAX_NUM_SEQS": "${MAX_NUM_SEQS:-4}",
+        "MCP_LOG_DIR": "/logs",
+        "MODEL_DIR": "${MODEL_DIR:?Set MODEL_DIR in .env}",
+        "MOE_BACKEND": "",
+        "MTP": "",
+        "NCCL_DEBUG": "",
+        "NCCL_IB_GID_INDEX": "${NCCL_IB_GID_INDEX:-}",
+        "NCCL_IB_HCA": "${NCCL_IB_HCA:-}",
+        "NCCL_MAX_NCHANNELS": "",
+        "NCCL_MIN_NCHANNELS": "",
+        "NCCL_SOCKET_IFNAME": "${NCCL_SOCKET_IFNAME:-}",
+        "NVIDIA_VISIBLE_DEVICES": "all",
+        "PEERS": "",
+        "PREFLIGHT": "",
+        "PYTORCH_CUDA_ALLOC_CONF": "",
+        "ROCE_SETTLE_S": "",
+        "ROLE": "${ROLE:?Set ROLE in .env}",
+        "SAFETENSORS_LOAD_STRATEGY": "",
+        "SELF_TEST": "",
+        "SERVED_NAME": "${SERVED_NAME:-glm53}",
+        "SERVICE_NAME": "${SERVICE_NAME:-glm53}",
+        "SKIP_MM_PROFILING": "${SKIP_MM_PROFILING:-}",
+        "SPEC_EXTRA": "{\"disable_eagle_block_drop\":true,\"attention_backend\":\"TRITON_ATTN\",\"num_speculative_tokens_per_batch_size\":[[1,1,7],[2,2,5],[3,3,4],[4,4,3],[5,5,2],[6,32,7]]}",
+        "SPEC_METHOD": "",
+        "SPEC_TOKENS": "",
+        "STATUS_PORT": "${STATUS_PORT:-8082}",
+        "THROUGHPUT_INTERVAL_S": "60",
+        "TOOL_PARSER": "",
+        "TORCH_MEM_FRACTION": "${TORCH_MEM_FRACTION:-0.92}",
+        "TORCH_MEM_STATS_DIR": "/logs",
+        "TORCH_MEM_STATS_INTERVAL": "",
+        "TORCH_MEM_TRACE_DIR": "",
+        "TP": "${TP:-2}",
+        "VLLM_ADAPTIVE_K_CODE_MODE": "gated",
+        "VLLM_ADAPTIVE_K_CONTROL": "/root/.cache/adaptive-k",
+        "VLLM_ADAPTIVE_K_COST_MS": "2:29.7,3:33.1,4:36.5,5:39.8,6:43.1,7:46.0,8:48.9",
+        "VLLM_ADAPTIVE_K_MODEL": "",
+        "VLLM_ADAPTIVE_K_ONLINE": "1",
+        "VLLM_ADAPTIVE_K_PER_REQUEST": "0",
+        "VLLM_ARXBIG": "1",
+        "VLLM_ARXBIG_AG": "0",
+        "VLLM_ARXBIG_RS": "1",
+        "VLLM_ARX_ALLREDUCE": "1",
+        "VLLM_ARX_TWO_SHOT_MAX_KB": "2048",
+        "VLLM_DENSE_FP8": "1",
+        "VLLM_DENSE_FP8_LM_HEAD": "1",
+        "VLLM_DENSE_W4": "in_proj_qkvbfg_a$$|^model\\.|self_attn\\.o_proj$$|shared_experts\\.(gate_up_proj|down_proj)$$",
+        "VLLM_DRAFT_TRUNC_CONTROL": "/root/.cache/draft-trunc",
+        "VLLM_DRAFT_TRUNC_EXPLORE": "4",
+        "VLLM_DRAFT_TRUNC_LOG": "",
+        "VLLM_DRAFT_TRUNC_TAU": "0.3",
+        "VLLM_GLM5NEXT_DRAFT_BLOCK_SIZE": "",
+        "VLLM_GLM5NEXT_DRAFT_POOL": "1",
+        "VLLM_GLM5NEXT_RECOVERSSM": "1",
+        "VLLM_GLM_ARX_PREFETCH": "1",
+        "VLLM_GLM_SP_FP8_GATHER": "1",
+        "VLLM_GLM_SP_MIN_TOKENS": "1024",
+        "VLLM_GLM_SP_MOE_CHECK": "0",
+        "VLLM_GLM_SP_MOE_FUSED": "1",
+        "VLLM_GLM_SP_MOE_QUANT_GATHER": "1",
+        "VLLM_GLM_SP_TP": "1",
+        "VLLM_HOST_IP": "${VLLM_HOST_IP:?Set VLLM_HOST_IP in .env}",
+        "VLLM_MEGAMOE": "1",
+        "VLLM_MEGAMOE_MAX_TOKENS": "8",
+        "VLLM_MEGAMOE_VARIANT": "20",
+        "VLLM_MHC_FUSED_MAX_TOKENS": "32",
+        "VLLM_MOE_PREFILL": "1",
+        "VLLM_MOE_PREFILL_CHECK": "0",
+        "VLLM_MOE_PREFILL_MIN_TOKENS": "1024",
+        "VLLM_MOE_PREFILL_Y8": "1",
+        "VLLM_TRITON_SPARSE_MLA": "1",
+        "VLLM_WEIGHT_SNAPSHOT_DIR": "/root/.cache/weight-snapshots",
+        "VLLM_WEIGHT_SNAPSHOT_TAG": "fp8w4c-2026-09-28",
+        "WORKER_WAIT_S": "600",
+        "NODE_RANK": "${NODE_RANK:?Set NODE_RANK in .env}",
+        "MASTER_PORT": "${MASTER_PORT:-29553}",
+        "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+        "VLLM_WEIGHT_SNAPSHOT_SEED_DIR": "/weight-snapshot-seed",
+        "FABRIC_CHECK_PORT": "${FABRIC_CHECK_PORT:-29511}"
+      },
+      "group_add": [
+        "${DRM_CARD_GID:-44}"
+      ],
+      "image": "${IMAGE:?Set IMAGE in .env}",
+      "ipc": "host",
+      "network_mode": "host",
+      "restart": "no",
+      "ulimits": {
+        "core": {
+          "soft": 0,
+          "hard": 0
+        },
+        "memlock": -1,
+        "stack": 67108864
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${MODEL_HOST_DIR:?Set MODEL_HOST_DIR in .env}",
+          "target": "/models/glm-5.3-flash-nvfp4",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/run/systemd/units",
+          "target": "/host/systemd-units",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DFLASH_HOST_DIR:?Set DFLASH_HOST_DIR in .env}",
+          "target": "/models/glm-5.3-flash-dflash2",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${CACHE_HOST_DIR:?Set CACHE_HOST_DIR in .env}",
+          "target": "/root/.cache",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${LOG_HOST_DIR:?Set LOG_HOST_DIR in .env}",
+          "target": "/logs",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/arx/arx.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arx.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/arx/arx_vllm.cu",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arx_vllm.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/arx/arxbig.cu",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arxbig.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/arx/cuda_communicator.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/cuda_communicator.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/snapshot/weight_snapshot.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/model_loader/weight_snapshot.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/snapshot/base_loader.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/model_loader/base_loader.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/snapshot/modelopt.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/quantization/modelopt.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/snapshot/flashinfer_cutlass_moe.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/experts/flashinfer_cutlass_moe.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/adaptive-k/adaptive_k.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/core/sched/adaptive_k.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/draft-trunc/draft_trunc.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/draft_trunc.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/draft-trunc/model_runner.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/model_runner.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/draft-trunc/rejection_sampler.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/rejection_sampler.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/draft-trunc/grouped_topk_router.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/router/grouped_topk_router.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/draft-trunc/speculator.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/speculator.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/draft-trunc/dflash2_speculator.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/dflash2/speculator.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/snapshot/dense_fp8.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/model_loader/dense_fp8.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/megamoe/megadense4.cu",
+          "target": "/opt/megamoe/megadense4.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/megamoe/megamoe_rm.cu",
+          "target": "/opt/megamoe/megamoe_rm.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/megamoe/moe_prefill.cu",
+          "target": "/opt/megamoe/moe_prefill.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/megamoe/megamoe_vllm.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/megamoe_vllm.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/_fa_common.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/flashinfer/mla/_batch_mla/_backends/_fa_common.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/attention.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/models/glm5next/common/attention.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/tilelang_kernels.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/kernels/mhc/tilelang_kernels.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/mhc_tilelang.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/kernels/mhc/tilelang.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/flashinfer_mla_sparse_sm90.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/mla/flashinfer_mla_sparse_sm90.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/gb10_sparse_mla.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/mla/gb10_sparse_mla.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/gdn_attn.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/gdn_attn.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/kda.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/models/glm5next/common/kda.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/causal_conv1d.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/mamba/ops/causal_conv1d.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/kv_cache_utils.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/core/kv_cache_utils.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/kv_cache_coordinator.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/core/kv_cache_coordinator.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/kv_cache_interface.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/kv_cache_interface.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/display-kv/worker_utils.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/utils.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/warmup.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/warmup.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/model.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/models/glm5next/common/model.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/experimental/fixes/recoverssm.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/models/glm5next/common/recoverssm.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}",
+          "target": "/deployment",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${SNAPSHOT_SEED_DIR:?Set SNAPSHOT_SEED_DIR in .env}",
+          "target": "/weight-snapshot-seed",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ],
+      "deploy": {
+        "resources": {
+          "reservations": {
+            "devices": [
+              {
+                "capabilities": [
+                  "gpu"
+                ],
+                "driver": "nvidia",
+                "count": -1
+              }
+            ]
+          }
+        }
+      },
+      "entrypoint": [
+        "/bin/bash",
+        "/deployment/entrypoint.sh"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python3",
+          "/deployment/healthcheck.py"
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "start_period": "20m",
+        "retries": 3
+      }
+    }
+  }
+}

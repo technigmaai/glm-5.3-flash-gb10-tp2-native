@@ -1,0 +1,530 @@
+# GLM-5.3-Flash NVFP4 on 2× NVIDIA GB10 — native TP2
+
+Run GLM-5.3-Flash across two NVIDIA GB10 systems with **one model container per node**, native vLLM multiprocessing, and an OpenAI-compatible API on **port 8000**. The deployment targets Linux ARM64 systems such as NVIDIA DGX Spark and ASUS GX10, connected over RoCE. Roles, addresses, interface discovery and filesystem paths are configurable; the recipe does not depend on a particular hardware vendor or hostname.
+
+This deployment is derived from **[Kindling AI's GLM-5.3-Flash recipe](https://github.com/kindlingai/glm-5.3-flash-gx10/tree/c748079d45e6e070b2acb108a91edfe52f4a7747)**. It retains that recipe's GB10 kernels, DFlash2 speculation, RecoverSSM, adaptive scheduling and optimized weight snapshots, then replaces its Mentat orchestration with fixed native ranks. A local display-memory allocation layer backs part of the KV cache with memory reserved by the GB10 firmware for a display.
+
+The active profile provides **six request slots**, a **1,047,552-token context limit**, **9 GiB logical KV per GPU**, and **image input**. Single-image input and six concurrent short requests have passed validation. An actual million-token request remains unqualified; see [validation and limits](#validation-and-limits).
+
+## Contents
+
+- [Serving profile](#serving-profile)
+- [Choose C4 or C6](#choose-c4-or-c6)
+- [Architecture](#architecture)
+- [Source stack and local adaptations](#source-stack-and-local-adaptations)
+- [KV capacity and headless display memory](#kv-capacity-and-headless-display-memory)
+- [Deployment](#deployment)
+- [Operating the cluster](#operating-the-cluster)
+- [API examples](#api-examples)
+- [Validation and limits](#validation-and-limits)
+- [Image rebuild and source maintenance](#image-rebuild-and-source-maintenance)
+- [Troubleshooting](#troubleshooting)
+- [Repository layout](#repository-layout)
+- [Credits and licenses](#credits-and-licenses)
+
+## Serving profile
+
+| Setting | Current value |
+|---|---|
+| Hardware | 2 nodes × 1 NVIDIA GB10 GPU; Linux ARM64 / SM121 |
+| Target checkpoint | [`nvidia/GLM-5.3-Flash-NVFP4`](https://huggingface.co/nvidia/GLM-5.3-Flash-NVFP4) |
+| Target revision | `da920bb0b9f4a06727223a349e55468e38352348` |
+| Draft checkpoint | [`incoai/GLM-5.3-Flash-DFlash2`](https://huggingface.co/incoai/GLM-5.3-Flash-DFlash2) |
+| Draft revision | `bf582e4eacc1810f76656d1811693ff6c6737d2a` |
+| Prepared Docker Hub image tag | `technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130` |
+| Docker image ID | `sha256:46afd8bba26106aa7ea6e00f6fd4bd3ba3d0c7c49e86af85f269eb2c88c71fa5` |
+| vLLM | `0.30.1rc1.dev193+gddd6fbca1` |
+| PyTorch / CUDA runtime | `2.13.0+cu130` / `13.0` |
+| FlashInfer | `0.7.0` |
+| Parallelism | TP2; native `mp` executor; two nodes; ranks 0 and 1 |
+| Maximum context | **1,047,552 tokens**, including prompt and output |
+| Maximum running sequences | **6** |
+| Maximum batched tokens | **6,144** |
+| Fixed logical KV allocation | **9,663,676,416 bytes / 9 GiB per GPU** |
+| KV dtype / block size | `fp8_e4m3` / 2,304 tokens |
+| Reported KV capacity | **1,524,917 equivalent tokens** at the validated boot |
+| Display-backed portion | **1,879,048,192 bytes / 1,792 MiB per node** |
+| GPU utilization / Torch memory fraction | `0.88` / `0.92`; allocator adjusts the worker budget |
+| Prefix caching | Enabled |
+| Speculation | DFlash2; adaptive draft width; nominal maximum 7 speculative tokens |
+| Recurrent state handling | RecoverSSM enabled; separate drafter KV pool |
+| MoE backend | `flashinfer_cutlass` with vendored GB10 optimizations |
+| Multimodal admission | Up to **32 images per request**; video disabled |
+| Multimodal processor cache | **1 GiB** |
+| Tool / reasoning parsers | `glm47` / `glm45` |
+| Chat template | `/usr/local/share/glm53-chat-template.jinja` in the image |
+| API | Head node, `0.0.0.0:8000`; base path `/v1` |
+| Recovery policy | Manual cluster operations; Compose `restart: "no"` |
+
+The current site was increased from 8 to **9 GiB** on 2026-10-03 and passed the basic tests below. The portable `.env.example` and optional generator start at **8 GiB** for a conservative fresh boot. After validating that initial boot and checking memory headroom, an operator can set `KV_CACHE_MEMORY=9663676416` on **both nodes** and restart to try the 9 GiB profile. The 9 GiB / 6,144-token / six-slot trial completed an uncached first boot, but peak swap use reached 13.19 GiB on the head and 11.40 GiB on the worker. The public example retains 8 GiB / 4,096 tokens / four slots for a conservative initial deployment.
+
+The image ID above is the local Docker identity, not a published registry manifest digest. The tag is prepared on this cluster for Docker Hub publication. It is not yet published, so fresh deployments must build or load it; a registry pull works only after publication.
+
+### Choose C4 or C6
+
+Two serving profiles have passed basic validation on this two-node cluster.
+`C4` and `C6` mean the maximum running sequence slots (`MAX_NUM_SEQS`); the
+batch token budget is shared across scheduled requests.
+
+| Option | `MAX_NUM_BATCHED_TOKENS` | `MAX_NUM_SEQS` | KV pool per GPU | Recorded KV capacity | Status |
+|---|---:|---:|---:|---:|---|
+| **4,096 / C4** | `4096` | `4` | 9 GiB | 1,533,757 equivalent tokens | Earlier validated profile; more memory headroom in basic checks |
+| **6,144 / C6** | `6144` | `6` | 9 GiB | 1,524,917 equivalent tokens | Currently running; basic checks and warm six-request prefill test passed |
+
+Both options retain TP2, port **8000**, the **1,047,552-token context limit**,
+image input, the display-memory patch and the same model aliases. Neither
+option has completed a million-token workload test. Six slots do not guarantee
+that six large prefills run at once: requests can queue under the token budget.
+
+Choose **one** option and edit these values in each node's existing `.env`.
+Keep host-specific addresses, paths and ranks as configured.
+
+**4,096 tokens / C4:**
+
+```dotenv
+MAX_NUM_BATCHED_TOKENS=4096
+MAX_NUM_SEQS=4
+KV_CACHE_MEMORY=9663676416
+```
+
+**6,144 tokens / C6:**
+
+```dotenv
+MAX_NUM_BATCHED_TOKENS=6144
+MAX_NUM_SEQS=6
+KV_CACHE_MEMORY=9663676416
+```
+
+After saving the same profile on **both nodes**, run from the head deployment
+folder during a planned interruption:
+
+```bash
+./cluster.sh check
+./cluster.sh restart --approved
+# Wait for head API readiness and the startup self-test to pass, then:
+./cluster.sh verify
+```
+
+Changing `MAX_NUM_BATCHED_TOKENS` changes the optimized snapshot key because
+scratch-buffer shapes differ. The launcher reuses only complete exact-key
+snapshots; if one is missing, it loads the original checkpoint and creates a
+new snapshot in the native runtime cache. First loads use more memory and swap
+and take longer. Both batch sizes now have matching snapshots on this site.
+The Hugging Face model directories remain in their default locations.
+
+For a **fresh deployment**, `.env.example` starts at **4,096 / C4 with 8 GiB KV**
+(`KV_CACHE_MEMORY=8589934592`). Validate that initial boot before trying the
+9 GiB settings above. C6 has less memory headroom; its first uncached load used
+substantial swap. See [validation and limits](#validation-and-limits) for the
+recorded checks and limitations.
+
+### Model names
+
+The reusable configuration defaults to `glm53` and `nvidia/GLM-5.3-Flash-NVFP4`. This site's `MODEL_ALIASES` also preserves the existing client names:
+
+```text
+glm53
+gx10
+local-inference-lab/GLM-5.3-Flash-NVFP4-Spark
+nvidia/GLM-5.3-Flash-NVFP4
+```
+
+All four names route to the **same NVIDIA checkpoint**. The Spark name is a compatibility alias, not a second loaded checkpoint. The `gx10` alias is a client setting, not hardware detection. Node addresses and cache paths belong in each node's private `.env`.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    C[OpenAI-compatible client] -->|HTTP :8000| H[Head: glm53-native container\nAPI and native rank 0]
+    H <-->|TP2 over RoCE| W[Worker: glm53-native container\nNative rank 1, headless]
+    HM[Head Hugging Face cache] -->|read-only| H
+    WM[Worker Hugging Face cache] -->|read-only| W
+```
+
+`compose.json` defines one service and is identical on both nodes. Each node has its own `.env`: `ROLE=head`, `NODE_RANK=0` on the head; `ROLE=worker`, `NODE_RANK=1` on the worker. Both use `--distributed-executor-backend mp --nnodes 2` and the same master address and port. The worker runs vLLM with `--headless`; only the head exposes the client API.
+
+Native serving needs no Mentat daemon, Mentat router or Ray container. The base image still contains upstream Mentat artifacts, but this entrypoint does not launch them. The status helper runs inside the model container, so it adds no container.
+
+| Port | Purpose |
+|---|---|
+| `8000` | Client API on the head |
+| `8082` | In-container startup/status helper on each node |
+| `29553` | Native vLLM master/rank coordination |
+| `29511` | Startup fabric diagnostic |
+
+Host networking and GPU/device access are configured in Compose. Both nodes need working RDMA connectivity and access to `/dev/infiniband` and `/dev/dri/card0`. The default preflight expects two fabric links, MTU 9000, and a matching IPv4 RoCE v2 GID on each link. The launcher discovers interface names from `FABRIC_SUBNETS`.
+
+## Source stack and local adaptations
+
+| Component | Source / pin | Role |
+|---|---|---|
+| Kindling recipe | [`c748079d45e6e070b2acb108a91edfe52f4a7747`](https://github.com/kindlingai/glm-5.3-flash-gx10/tree/c748079d45e6e070b2acb108a91edfe52f4a7747) | Image recipe, entrypoint foundation, experimental overlays and smoke tests |
+| vLLM nightly | [`ddd6fbca148a867aad1fcab7ec72f582b9977db4`](https://github.com/vllm-project/vllm/tree/ddd6fbca148a867aad1fcab7ec72f582b9977db4) | GLM5next serving engine and native distributed runtime |
+| FlashKDA | `17a037d98da546deb4591e967cf961a43c034d8b`, pinned by Kindling's image recipe | Updated recurrent-state kernel |
+| Target and drafter | Exact Hugging Face revisions in the profile table | Immutable model inputs |
+| Display allocator origin | [`coolbho3k/DeepSeek-v4.1-Flash-2x-DGX-Spark`](https://github.com/coolbho3k/DeepSeek-v4.1-Flash-2x-DGX-Spark), commit `878e0eecd893fadc69ad2d58b2df0fabb0fae2ee` | Display-reserved memory technique; local GLM adaptation |
+| Previous GLM deployment | [`technigmaai/glm-5.3-flash-nvfp4-2x-dgx-sparks`](https://github.com/technigmaai/glm-5.3-flash-nvfp4-2x-dgx-sparks) | Earlier deployment and display-KV integration reference |
+
+The vendored `experimental/` overlays provide adaptive-k scheduling, draft truncation, ARX/ARXBig collectives, sequence-parallel prefill, Triton sparse MLA, MegaMoE decode/prefill kernels, dense FP8/NVFP4 transforms, recurrent-state fixes and processed-weight snapshots. Their source is independent of the old deployment directory. The pinned [upstream experimental documentation](https://github.com/kindlingai/glm-5.3-flash-gx10/blob/c748079d45e6e070b2acb108a91edfe52f4a7747/experimental/README.md) explains the individual optimizations.
+
+Local adaptations cover fixed native ranks, role-based configuration, direct API serving, read-only model mounts, independent caches/logs, display-backed KV allocation, and exact-key snapshot reuse. The snapshot selector prefers a complete native snapshot, then an exact matching complete read-only seed; newly created snapshots go to the native cache.
+
+The [goshi OOM-hardening comparison](https://github.com/kindlingai/glm-5.3-flash-gx10/compare/main...goshi:glm-5.3-flash-gx10:spark3-oom-hardening) was reviewed as a possible future source of changes. It is **not part of this deployment**, and it is not the source of the display-memory patch.
+
+## KV capacity and headless display memory
+
+`KV_CACHE_MEMORY=9663676416` fixes the current site's logical KV allocation at **9 GiB per GPU**. GPU utilization is a separate memory-budget setting; it does not enlarge this fixed pool.
+
+The local allocator uses 1,792 MiB of display-reserved memory per node within that 9 GiB pool. Roughly 7.25 GiB is therefore backed by ordinary unified memory, subject to the allocator's alignment. The display reservation is **not an extra 1.75 GiB added on top of the configured 9 GiB**. The worker overlay also accounts for registered ordinary memory when adjusting the Torch allocation budget.
+
+The validated boot reported **1,524,917 equivalent KV tokens**, approximately **1.46×** the configured maximum context. This is a shared cache-capacity estimate under this profile, not a guaranteed prompt length or a private allowance for every request. Six request slots do not provide six simultaneous million-token contexts. Image processing, recurrent states, speculation and active requests also affect memory availability.
+
+Both nodes must remain headless. The display manager is inactive on the current cluster. Host preparation, when needed on a new system, is an explicit operator action:
+
+```bash
+sudo systemctl set-default multi-user.target
+sudo systemctl isolate multi-user.target
+```
+
+This ends desktop sessions. The native launcher checks the host state; it does not change the boot target, install a kernel, or modify an initramfs. The allocator implementation, compiled ARM64 helper, integration and original license are in [display-kv/](display-kv/), with provenance in [ORIGIN.md](display-kv/ORIGIN.md).
+
+## Deployment
+
+These instructions are for a **fresh two-node deployment**. An existing installation does not need its `.env` recreated. The default setup is to copy and edit `.env.example`; **`configure.py` is optional**.
+
+### 1. Prepare the hosts
+
+Use two compatible GB10 Linux ARM64 nodes with Docker Engine, Docker Compose v2, NVIDIA Container Toolkit, usable matching GPU drivers and working RoCE. Install Python 3, Bash, SSH, `flock`, `ip`, `nvidia-smi`, `curl` and `jq` on the hosts, and the Hugging Face CLI for downloads. The upstream image build also needs Git and access to its source submodules.
+
+Make both nodes headless as described under [headless display memory](#kv-capacity-and-headless-display-memory). Configure two RoCE fabric links with static IPv4 addresses, MTU 9000 and valid RoCE v2 GIDs. Configure passwordless SSH from the head to the worker. Leave both GPUs idle before the first start.
+
+The example network throughout this guide is:
+
+| Purpose | Head | Worker |
+|---|---|---|
+| LAN / native node identity | `10.10.0.1` | `10.10.0.2` |
+| First RoCE fabric | `10.20.0.1` | `10.20.0.2` |
+| Second RoCE fabric | `10.21.0.1` | `10.21.0.2` |
+
+Replace those example addresses with your actual network. Both nodes must reach the head's master port and communicate across both fabric networks. Allow client access to the head's port 8000.
+
+### 2. Obtain this deployment on both nodes
+
+Clone this **native deployment repository**, independently on each node:
+
+```bash
+REPO_URL='https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native.git'
+mkdir -p "$HOME/Development/ai-tools/glm53"
+cd "$HOME/Development/ai-tools/glm53"
+git clone "$REPO_URL" glm-5.3-flash-gb10-tp2-native
+cd glm-5.3-flash-gb10-tp2-native
+```
+
+This repository contains the native launcher, portable configuration and vendored runtime overlays. Its upstream source is Kindling AI; the build instructions below use the pinned Kindling checkout to reconstruct the base image.
+
+If distributing the prepared folder directly before publication, copy it to both nodes instead, omitting private `.env`, logs and site reports. Each node must contain the same `compose.json`, entrypoint, `experimental/`, `display-kv/` and integrity manifest. Node settings may differ.
+
+### 3. Build or obtain the patched image
+
+The Docker Hub tag is prepared but not yet published. On one compatible ARM64 GB10 host, follow [image rebuild](#image-rebuild-and-source-maintenance) to build the pinned Kindling base and apply the included display layer. Alternatively, load a trusted archive of that same prepared image:
+
+```bash
+docker image load -i /path/to/glm53-native-image.tar
+docker image inspect technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 --format '{{.Id}}'
+```
+
+After the image is published, both nodes can instead use:
+
+```bash
+docker pull technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130
+```
+
+Until publication, use the build/load path above. Do not substitute an unpatched stock vLLM image. This deployment expects the pinned runtime and display-memory helper. Install the same image contents on the worker; step 6 gives the transfer command. Build/load operations are setup work, not part of normal model startup.
+
+### 4. Download checkpoints into each user's default cache
+
+On **each node**, download the pinned revisions without `--local-dir`:
+
+```bash
+hf download nvidia/GLM-5.3-Flash-NVFP4 \
+  --revision da920bb0b9f4a06727223a349e55468e38352348
+hf download incoai/GLM-5.3-Flash-DFlash2 \
+  --revision bf582e4eacc1810f76656d1811693ff6c6737d2a
+```
+
+The default host locations are:
+
+```text
+~/.cache/huggingface/hub/models--nvidia--GLM-5.3-Flash-NVFP4
+~/.cache/huggingface/hub/models--incoai--GLM-5.3-Flash-DFlash2
+```
+
+Each node needs the complete cache directories, including `blobs/` and the `snapshots/` symlinks. Instead of downloading twice, you may copy those two cache directories from the head into the worker user's default cache while preserving symlinks. Model weights stay in the cache, outside the deployment folder, and are mounted read-only. If `HF_HOME` or `HF_HUB_CACHE` changes the location, enter the actual absolute host paths in `.env`.
+
+The present cluster already has the pinned checkpoints and completed checksum verification on both nodes; a new cluster must obtain them independently.
+
+### 5. Copy and edit `.env` on each node
+
+From the native deployment directory on **both nodes**:
+
+```bash
+cp .env.example .env
+stat -c '%g' /dev/dri/card0
+nano .env
+```
+
+Copy only for a fresh installation: do not overwrite an existing working `.env`. Any text editor is suitable. The example is a head configuration; change the worker values explicitly:
+
+| Variable | Head `.env` | Worker `.env` |
+|---|---|---|
+| `ROLE` | `head` | `worker` |
+| `NODE_RANK` | `0` | `1` |
+| `HEAD_HOST` | Head LAN IP, e.g. `10.10.0.1` | Same head LAN IP |
+| `VLLM_HOST_IP` | Head LAN IP | Worker LAN IP, e.g. `10.10.0.2` |
+| `FABRIC_SUBNETS` | `'10.20.0. 10.21.0.'` | Same fabric prefixes |
+| `DEPLOY_ROOT` | Absolute checkout path on head | Absolute checkout path on worker |
+| `PEER_SSH` | Worker SSH destination, e.g. `your-user@10.20.0.2` | May be empty: `PEER_SSH=` |
+| `PEER_DEPLOY_DIR` | Absolute checkout path on worker | May be empty: `PEER_DEPLOY_DIR=` |
+| `DRM_CARD_GID` | Group ID printed on head | Group ID printed on worker |
+
+Also replace **every `/home/your-user` path** in the template: target cache, drafter cache, native cache, logs and snapshot seed. Set `IMAGE` to the installed patched tag on each host. `MODEL_DIR` and `DFLASH_MODEL` are paths **inside the container** and already point at the pinned revisions; leave them unchanged.
+
+Use literal absolute paths in `.env`, not `~`, `$HOME` or references to other variables: the launcher, Compose and Python settings reader all consume it. Quote values containing spaces or JSON as shown in the example. `FABRIC_SUBNETS` takes IPv4 prefixes ending in a dot, not CIDR strings such as `10.20.0.0/24`.
+
+Keep the shared serving settings identical on both nodes: TP2, the selected [C4 or C6 profile](#choose-c4-or-c6), 1,047,552 maximum context, KV pool, ports, image limits and model aliases. The fresh template starts with C4 and 8 GiB KV. Your host usernames, local paths and DRM group IDs may differ. You do not need a previous deployment or optimized snapshot cache.
+
+Create the native runtime directories on **both nodes**, using the paths you just configured:
+
+```bash
+# Run in Bash, from the directory containing your edited .env.
+source .env
+mkdir -p "$CACHE_HOST_DIR" "$LOG_HOST_DIR" "$SNAPSHOT_SEED_DIR"
+```
+
+For a fresh installation, `SNAPSHOT_SEED_DIR` points to an empty directory under the new native cache. Its bind mount still needs an existing directory. The first boot loads checkpoints and creates optimized snapshots in the writable native cache. Optionally point the seed at complete, exact-key snapshots from a matching older runtime; the seed is always read-only.
+
+### 6. Install the same image on the worker and check configuration
+
+From the head, after editing `.env` and configuring passwordless SSH:
+
+```bash
+source .env
+ssh -o BatchMode=yes "$PEER_SSH" true
+
+# Skip the transfer if this exact image is already installed on the worker.
+set -o pipefail
+docker image save "$IMAGE" | ssh "$PEER_SSH" docker image load
+
+docker image inspect "$IMAGE" --format '{{.Id}}'
+ssh "$PEER_SSH" docker image inspect "$IMAGE" --format '{{.Id}}'
+```
+
+Compare the printed image IDs. These commands assume the same tag on both nodes. An equivalent registry transfer is also possible, but the image contents must match.
+
+Run these commands locally on **each node**, from its checkout:
+
+```bash
+./cluster.sh check
+./cluster.sh config
+```
+
+`check` verifies source hashes, the installed image, bind-source paths, model configs and rank/role consistency. `config` only renders the resolved Compose configuration; it does not configure the host or start containers. Correct any failure before starting.
+
+### 7. Start and verify from the head
+
+```bash
+./cluster.sh start --approved
+./cluster.sh status
+./cluster.sh logs --tail 80
+```
+
+`start` checks both node configurations, idle GPU ownership, free ports, available host memory and RoCE links, then starts the pair. Each node preflight requires at least 100 GiB `MemAvailable` by default. Startup includes fabric diagnostics, weight loading, warmup and a head-side self-test. An initial uncached boot takes longer than a snapshot restore. The launch command returning does not itself prove inference readiness.
+
+After startup logs show serving and the head's health endpoint succeeds:
+
+```bash
+# Replace with the actual head address; 10.10.0.1 is only the guide's example.
+curl -fsS http://10.10.0.1:8000/health
+./cluster.sh verify
+```
+
+`verify` checks aliases, the smoke suite including image input, and concurrent short requests. It submits real requests and does not validate a million-token prompt. Configure clients with `http://YOUR_HEAD_IP:8000/v1` and a listed model alias. For subsequent normal operation, use the commands below; do not rerun configuration generation.
+
+### Optional configuration generator
+
+`configure.py` is an alternative to copying and manually editing the example. It fills default cache/log paths from the current user's home directory and creates native runtime directories. It does not start containers:
+
+```bash
+# Head example; replace all site values.
+python3 configure.py --role head \
+  --head-host 10.10.0.1 --node-ip 10.10.0.1 \
+  --fabric-subnets '10.20.0. 10.21.0.' \
+  --image technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 \
+  --peer-ssh your-user@10.20.0.2 \
+  --peer-dir /absolute/path/glm-5.3-flash-gb10-tp2-native \
+  --drm-gid 44
+
+# Worker example.
+python3 configure.py --role worker \
+  --head-host 10.10.0.1 --node-ip 10.10.0.2 \
+  --fabric-subnets '10.20.0. 10.21.0.' \
+  --image technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 \
+  --drm-gid 44
+```
+
+The generator refuses an existing `.env` unless `--force` is supplied. If using it, skip `cp .env.example .env`, inspect the generated settings, and proceed with image/configuration checks. Optional `--snapshot-seed` supplies an existing read-only optimized cache. Manual and generated configurations use the same launcher and runtime.
+
+## Operating the cluster
+
+| Command | Effect |
+|---|---|
+| `./cluster.sh check` | Read-only source, mount, image and configuration checks on this node |
+| `./cluster.sh config` | Render this node's resolved Compose configuration |
+| `./cluster.sh status` | Show containers on the head and configured worker |
+| `./cluster.sh logs --tail 80` | Tail this node's container logs |
+| `./cluster.sh verify` | Submit alias checks, eight smoke cases including image input, then concurrent requests |
+| `./cluster.sh restart --approved` | Stop both containers, preflight and start the native pair |
+| `./cluster.sh stop --approved` | Stop and remove both native containers |
+
+The `--approved` flag is an explicit operator guard on mutations. It does not add a daemon or an approval service. No cron watchdog or automatic restart policy is installed by this recipe. If a rank fails, inspect both nodes and restart the pair after resolving the cause.
+
+`check` is safe while serving. `node-preflight` expects stopped containers and idle GPUs, so occupied serving ports and an active model make it fail by design. `verify` creates inference load; run it when that load is appropriate. It does not submit a million-token prompt.
+
+An optional [legacy.sh](legacy.sh) adapter supports `cutover --approved` and `rollback --approved` when the site's `LEGACY_*` settings point to the previous Kindling/Mentat stack. Native start/stop/restart do not require that adapter. The much older NVFP4 deployment and its watchdog remain disabled on this cluster.
+
+## API examples
+
+Use your head address; the examples below assume `HEAD_IP` is set:
+
+```bash
+export HEAD_IP=10.10.0.1
+curl -fsS "http://${HEAD_IP}:8000/health"
+curl -fsS "http://${HEAD_IP}:8000/v1/models" | jq
+
+curl -fsS "http://${HEAD_IP}:8000/v1/chat/completions" \
+  -H 'Content-Type: application/json' \
+  --data '{"model":"glm53","messages":[{"role":"user","content":"Explain tensor parallelism in two sentences."}],"max_tokens":256,"temperature":0.6}' | jq
+```
+
+Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The image's template derives from NVIDIA's template and maps `enable_thinking=false` to low reasoning effort rather than promising a completely non-reasoning mode. Temperature and other sampling parameters belong in client requests.
+
+### Image input
+
+Image requests use OpenAI-style content parts. This example uses a PNG data URL and avoids relying on the serving node fetching an external image:
+
+```bash
+image_b64=$(base64 < /path/to/image.png | tr -d '\n')
+jq -n --arg image "data:image/png;base64,$image_b64" \
+  '{model:"glm53",messages:[{role:"user",content:[{type:"text",text:"Describe this image."},{type:"image_url",image_url:{url:$image}}]}],max_tokens:256}' \
+  | curl -fsS "http://${HEAD_IP}:8000/v1/chat/completions" \
+      -H 'Content-Type: application/json' --data-binary @- | jq
+```
+
+Use the MIME type that matches the file. `LIMIT_MM='{"image":32,"video":0}'` is a per-request admission limit, not a claim that every 32-image workload fits alongside a full-length prompt. Vision processing consumes additional memory and prompt tokens. One real image-reading smoke case passed; maximum image count and resolution workloads remain untested.
+
+## Validation and limits
+
+The native deployment was validated on **2026-10-03**. The published, host-independent summary is [validation-summary.json](validation-summary.json). Raw runtime reports and verification logs remain private to the test installation.
+
+| Check | Recorded result |
+|---|---|
+| Configuration, source hashes, image and mount integrity | Passed on both nodes |
+| Built-in startup self-test | Passed |
+| Model aliases | All four site aliases passed |
+| Smoke suite | **8/8 passed**, including thinking controls, factual response, tool call, image reading, output limit, context rejection and model metadata |
+| Concurrency | **Six simultaneous 256-token streams**; observed running count 6; zero preemptions |
+| Larger concurrent prefills | Six requests of 13,792–13,930 prompt tokens plus 128 output tokens completed; warm repeat had zero preemptions and peak running count 4 |
+| Display allocator | Active on both nodes; 1,792 MiB allocation per node recorded |
+| Native fabric diagnostic | Approximately **168 Gb/s** in the recorded startup test |
+| KV capacity | **1,524,917 equivalent tokens** reported at boot |
+| Available RAM during warm trial checks | Head minimum **1.15 GiB**; worker minimum **2.77 GiB** |
+| Swap activity during those checks | Head about **966 MiB** swapped out; worker 8 KiB swapped out |
+| Actual million-token request | **Not qualified**; an attempted request remained waiting before prefill and was stopped |
+| 32-image workloads | **Not tested** |
+
+The active 9 GiB / 6,144-token / six-slot profile passed all four alias checks, eight smoke cases and six concurrent 256-token requests after a cached restart; streams took 11.10–14.67 seconds with zero preemptions. Six larger concurrent requests also completed in 29.01–46.69 seconds with zero preemptions. Their peak running count was four because the scheduler admitted prefills within its token budget; six submitted requests need not all be running at once. The initial uncached run completed all six larger requests but recorded one preemption. Its cause remains unconfirmed. The head has limited RAM and uses swap, so this is basic workload validation rather than a maximum-safe-pool determination. The validation summary records both profiles. Raw experiment reports are excluded from this public repository.
+
+The context setting and cache estimate are boot evidence, not completed million-token workload validation. Long-context testing is reserved for manual evaluation. There is no qualified broad performance benchmark for this native profile yet, and earlier deployment or upstream throughput tables are not measurements of this exact configuration.
+
+## Image rebuild and source maintenance
+
+The launcher consumes an installed image; it does not build one. For initial setup, install the image before running it. Every rank must use the same image contents and matching overlays. Build away from a live serving workload.
+
+To reconstruct the pinned base, obtain the upstream checkout and its submodules, then use its build script on a compatible ARM64 GB10 build host:
+
+```bash
+git clone https://github.com/kindlingai/glm-5.3-flash-gx10.git kindling-source
+cd kindling-source
+git checkout c748079d45e6e070b2acb108a91edfe52f4a7747
+git submodule update --init --recursive
+TAG=local/glm53-native:gb10-c748079-base image/build.sh
+```
+
+The upstream recipe pins the nightly image, builds FlashKDA and installs its patches and artifacts. The native entrypoint and vendored source files are mounted by this deployment at runtime. From this deployment directory, apply the included display layer to that base:
+
+```bash
+docker build --build-arg BASE_IMAGE=local/glm53-native:gb10-c748079-base \
+  -t technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 display-kv/
+```
+
+The prepared Docker Hub tag can be published by its maintainer after validation:
+
+```bash
+docker login
+docker push technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130
+```
+
+These publication commands are separate from cluster setup and have not been run for this documentation update.
+
+`display-kv/` includes the exact compiled ARM64 helper and its C source. A fresh rebuild may produce a different image ID; verify its contents and workload behavior before assigning it to a serving profile. Transfer the finished image to the worker with `docker save`/`docker load` or your registry, and compare image identities. These are reconstruction instructions; no new rebuild was performed for this documentation update.
+
+`install-assets.py --source-root /path/to/pinned-kindling --display-patch-dir /path/to/matching-display-patch` refreshes vendored source files and applies the native snapshot selector. It can overwrite local source edits. `manifest.json` records SHA-256 hashes; update the corresponding entries after intentional edits and run `cluster.sh check` on both nodes. Preserve matching source and image versions, and revalidate inference when behavior changes.
+
+## Troubleshooting
+
+| Symptom | Checks / action |
+|---|---|
+| API unavailable during startup | Inspect `cluster.sh status` and both nodes' logs; weights, warmup and self-test must finish first |
+| API ready but requests wait | Inspect running/waiting counts, KV usage and logs; a free request slot alone does not establish that a long prompt can be scheduled |
+| Worker or rank failure | Inspect both containers and fabric, then restart the pair after resolving the cause |
+| Preflight reports occupied ports or GPU | An active listener or GPU workload prevents startup. The port guard uses `SO_REUSEADDR`, so a recently closed TCP socket in `TIME_WAIT` does not cause a false conflict. Do not run idle-resource preflight against an intentionally live deployment |
+| RoCE preflight fails | Verify configured prefixes, link state, MTU and IPv4-mapped RoCE v2 GIDs on both PCIe roots |
+| OOM or heavy swap | Check both nodes' available memory, desktop services, other jobs, batched-token budget, active contexts and image sizes |
+| Slow first boot | Processed snapshots may be absent; the initial checkpoint load creates them |
+| Hash mismatch | Inspect the named source change, synchronize intended files and update its manifest hash |
+| Image rejected by the API | Check `LIMIT_MM`, content-part format, MIME type and the selected model alias |
+| Folder renamed while containers remain live | Existing bind mounts can still name the former path; a temporary compatibility symlink can preserve it until container recreation |
+
+The earlier transient restart failure came from probing ports with a plain TCP bind after shutdown. Closed connections could remain in `TIME_WAIT`, which was reported as an occupied port even though no process was listening. `preflight.py` now sets `SO_REUSEADDR` before binding. Actual listener and recently closed socket cases were checked; active listeners remain rejected. This launcher fix requires no image rebuild.
+
+The API metrics endpoint is `/metrics`. Use both node logs for distributed failures. Increasing the context limit or KV pool requires renewed memory and workload validation; the current site retains the tested 9 GiB pool.
+
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| `compose.json` | Single shared native model service |
+| `.env.example`, `configure.py` | Portable configuration and role-specific generator |
+| `.env` | Private node settings; keep out of a public source repository |
+| `cluster.sh` | Coordinated lifecycle and verification commands |
+| `entrypoint.sh` | Native ranks, fabric setup, vLLM arguments and startup checks |
+| `check.py`, `preflight.py`, `healthcheck.py` | Integrity, idle-resource and running-container checks |
+| `experimental/` | Pinned Kindling runtime overlays |
+| `display-kv/` | Local display-memory allocator integration and provenance |
+| `smoketest/`, `verify-api.py`, `verify-concurrency.py` | API, image and concurrency validation |
+| `install-assets.py`, `copy-assets.json`, `manifest.json` | Source copying and integrity records |
+| `legacy.sh` | Optional previous-stack migration adapter |
+| `validation-summary.json` | Published profile checks and limitations; private node reports are excluded |
+| `THIRD_PARTY.md`, `licenses/` | Source provenance and retained license notices |
+
+Model weights, Hugging Face cache data, runtime caches, secrets, container archives and generated logs belong outside public source control. This GitHub repository publishes the deployment source. Docker Hub image publication is separate; the prepared image tag has not yet been pushed.
+
+## Credits and licenses
+
+- **[Kindling AI](https://github.com/kindlingai/glm-5.3-flash-gx10)** for the serving foundation, GB10 optimizations and experimental runtime stack. This is a derived deployment; upstream remains the primary source reference.
+- **[coolbho3k](https://github.com/coolbho3k/DeepSeek-v4.1-Flash-2x-DGX-Spark)** for the display-reserved CUDA allocation technique adapted here. The included allocator retains its **AGPL-3.0-only** license and source; see [LICENSE.AGPL-3.0](display-kv/LICENSE.AGPL-3.0) and [ORIGIN.md](display-kv/ORIGIN.md).
+- **[Z.ai](https://huggingface.co/zai-org/GLM-5.3-Flash)** and **[NVIDIA](https://huggingface.co/nvidia/GLM-5.3-Flash-NVFP4)** for the model and NVFP4 checkpoint. NVIDIA's model card identifies the checkpoint license as MIT.
+- **[Inco AI](https://huggingface.co/incoai/GLM-5.3-Flash-DFlash2)** for DFlash2. Its model card specifies **CC BY-NC-ND 4.0** for research and evaluation, with separate commercial licensing. The target checkpoint's license does not override the drafter's terms.
+- The **vLLM, PyTorch, FlashInfer, FlashKDA, Triton and NCCL** maintainers, and the earlier [two-node GLM deployment](https://github.com/technigmaai/glm-5.3-flash-nvfp4-2x-dgx-sparks) contributors.
+
+Upstream files and model assets remain subject to their respective terms. This README does not assign a single replacement license to the combined stack.

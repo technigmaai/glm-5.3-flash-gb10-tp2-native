@@ -1,0 +1,26 @@
+# Private node configuration and reports
+.env
+.env.*
+!.env.example
+site/
+SITE.md
+validation*.json
+!validation-summary.json
+experiments/
+*.log
+.cluster.lock
+
+# Generated Python, model, cache and container artifacts
+__pycache__/
+*.py[cod]
+.venv/
+cache/
+logs/
+models/
+weight-snapshots/
+*.safetensors
+*.gguf
+*.tar
+*.tar.gz
+*.tgz
+.DS_Store
