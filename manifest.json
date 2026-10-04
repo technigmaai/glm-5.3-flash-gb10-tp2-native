@@ -1,11 +1,11 @@
 {
   "upstream_entrypoint_sha256": "fa0d017911fdb22a7cce7ce9aba0e2109b31804b753919b0a523be8e96db7a10",
-  "native_entrypoint_sha256": "f69426d1465f29a402432017185e55a59e3fa86e8fb78e0ca55795186f264671",
+  "native_entrypoint_sha256": "3148c289968b1ccd29f5617fce5ae707a7fdc2080cf9ac99029a9cadb1bc105c",
   "base_image": "technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130",
   "files": {
-    ".env.example": "88367805f9c7849a09dcc4628f11fc2cda569e394e8431b8e3e695e85dce0fee",
+    ".env.example": "3ea259770605adf27c494ab162e01ea6568a18f607f9923b21d7f71bd6685d90",
     ".gitignore": "515e7cd0f7c3756327940dbb26243affbbd1069a37d323d4e18e786db1baedb4",
-    "README.md": "6979f44d4f30b579f6e6f2b8f576b2be51316012184dbba40e4646a86156c8c9",
+    "README.md": "37762f449980d011c064b24f6addcf63e01a954b1f7f2ecb1d07f3f0e9a0c456",
     "THIRD_PARTY.md": "c01f88ecc3ef11f88eae6086dd7f27a42eb9aa1fa9614aae6078bf905cbb8338",
     "check.py": "1b7d7c2554d63849419be3924cf2f21603c07fd0cf8fd8b58b2f8069b0453f05",
     "cluster.sh": "9803e2904323ed9a4e228150135038d518b49e9b7ff5bc36eededee642220bf1",
@@ -21,7 +21,7 @@
     "display-kv/patch-overlay.py": "939c5b3e684fc26d8c1abe0f18df678e70c61785c243fba12e98f08bd2ae0a8d",
     "display-kv/probe.py": "c7153c2af9d3b4b26bade1843e0689f3eb6184ec6a58ccb426fe4adcbd0e3bff",
     "display-kv/worker_utils.py": "24f329a2f310e841bb09bde6925a26ce4321d5c9026f1b3c935a1f0b3607d778",
-    "entrypoint.sh": "6c67823183a855cebc6cbb2565500cd1a07db398a69e05d0af40ac5ae741a675",
+    "entrypoint.sh": "3148c289968b1ccd29f5617fce5ae707a7fdc2080cf9ac99029a9cadb1bc105c",
     "experimental/adaptive-k/adaptive_k.py": "7b5c6c95d629eb810fd331df7216cfc47b472dfee8732e85e7b1c5fc53841f7f",
     "experimental/arx/arx.py": "8b392fa448d1490a3ba42bf37de976477b4bcf6f7826edb105a32feb711b4e27",
     "experimental/arx/arx_vllm.cu": "4319f97c4f7be24d994329d066dd0aed4151d87c20114d6a9a0be3723fefda2f",
@@ -68,9 +68,10 @@
     "smoketest/lib.sh": "442f4447d7891e94fd664e9de3e68a27faa0d79ed564b4f9f5f69f5fdb7cad8e",
     "smoketest/page-table.png": "722779ef5679c652d3f8abd04cc6ae2908d68126612acb6c9c7caab735ca6cfd",
     "smoketest/run.sh": "7853f4de2032c9aca0c47a0eafaab83f126bc00ca7f1f6307351a71a10519899",
-    "validation-summary.json": "2e20beb9dd5bd9800b69f4c3006223f66cc0616078e537a3296857f3cedd5cb3",
+    "validation-summary.json": "106df5b9b2c29f5f67ca2278321043ded76d5d97c82eb833fd35167701cbd6cc",
     "verify-api.py": "4f805d6c2793467608f62533a3fefd0dac16fd1ae679cbbaa05ad19d1d2fff85",
     "verify-concurrency.py": "44739f269a0ff0661f4bd8e495d7ab65c8f6f8668f3d1d0b32e3813079d1def5",
-    "docs/DEPLOYMENT.md": "6662df2905e4917875dc88c4ec09b703001379118b235d7c69660684a1902058"
+    "docs/DEPLOYMENT.md": "af2c284ee139fd272682980f7ef6c93025660f9745c3411583d3d5bd283556e9",
+    "docs/EXTERNAL_FEEDBACK.md": "7fead7e51614fa22d13fdb9aacdfc59a0b53c326de9f4b95af352d8400fe9c15"
   }
 }

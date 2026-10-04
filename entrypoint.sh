@@ -840,6 +840,7 @@ CMD=(vllm serve "$MODEL" \
   --safetensors-load-strategy "${SAFETENSORS_LOAD_STRATEGY:-eager}" \
   --gpu-memory-utilization "${GPU_MEM_UTIL:-0.88}" \
   --max-model-len "${MAX_MODEL_LEN}" \
+  --override-generation-config '{"max_new_tokens":null}' \
   --kv-cache-dtype "${KV_CACHE_DTYPE:-fp8_e4m3}" \
   --block-size "${BLOCK_SIZE:-2304}" \
   "${KV_ARGS[@]}" \

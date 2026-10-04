@@ -4,7 +4,7 @@ Run GLM-5.3-Flash across two NVIDIA GB10 systems with **one model container per 
 
 This deployment is derived from **[Kindling AI's GLM-5.3-Flash recipe](https://github.com/kindlingai/glm-5.3-flash-gx10/tree/c748079d45e6e070b2acb108a91edfe52f4a7747)**. It retains that recipe's GB10 kernels, DFlash2 speculation, RecoverSSM, adaptive scheduling and optimized weight snapshots, then replaces its Mentat orchestration with fixed native ranks. A local display-memory allocation layer backs part of the KV cache with memory reserved by the GB10 firmware for a display.
 
-The active profile provides **six request slots**, a **1,047,552-token context limit**, **9 GiB logical KV per GPU**, and **image input**. Single-image input and six concurrent short requests have passed validation. An actual million-token request remains unqualified; see [validation and limits](#validation-and-limits).
+The active profile provides **six request slots**, a **1,047,552-token context limit**, **8 GiB logical KV per GPU**, and **image input**. Single-image input and six concurrent short requests have passed validation. An actual million-token request remains unqualified; see [validation and limits](#validation-and-limits).
 
 ## Contents
 
@@ -41,9 +41,9 @@ The active profile provides **six request slots**, a **1,047,552-token context l
 | Maximum context | **1,047,552 tokens**, including prompt and output |
 | Maximum running sequences | **6** |
 | Maximum batched tokens | **6,144** |
-| Fixed logical KV allocation | **9,663,676,416 bytes / 9 GiB per GPU** |
+| Fixed logical KV allocation | **8,589,934,592 bytes / 8 GiB per GPU** |
 | KV dtype / block size | `fp8_e4m3` / 2,304 tokens |
-| Reported KV capacity | **1,524,917 equivalent tokens** at the validated boot |
+| Reported KV capacity | **1,352,535 equivalent tokens** at the current 8 GiB / C6 boot |
 | Display-backed portion | **1,879,048,192 bytes / 1,792 MiB per node** |
 | GPU utilization / Torch memory fraction | `0.88` / `0.92`; allocator adjusts the worker budget |
 | Prefix caching | Enabled |
@@ -57,20 +57,31 @@ The active profile provides **six request slots**, a **1,047,552-token context l
 | API | Head node, `0.0.0.0:8000`; base path `/v1` |
 | Recovery policy | Manual cluster operations; Compose `restart: "no"` |
 
-The current site was increased from 8 to **9 GiB** on 2026-10-03 and passed the basic tests below. The portable `.env.example` and optional generator start at **8 GiB** for a conservative fresh boot. After validating that initial boot and checking memory headroom, an operator can set `KV_CACHE_MEMORY=9663676416` on **both nodes** and restart to try the 9 GiB profile. The 9 GiB / 6,144-token / six-slot trial completed an uncached first boot, but peak swap use reached 13.19 GiB on the head and 11.40 GiB on the worker. The public example retains 8 GiB / 4,096 tokens / four slots for a conservative initial deployment.
+The active site moved from 9 GiB to **8 GiB per GPU** on 2026-10-04,
+retaining 6,144 batched tokens and six slots. The portable `.env.example` and
+optional generator also default to 8 GiB, with C4 for a conservative first boot.
+The earlier 9 GiB / C6 uncached boot completed, but peak swap use reached
+13.19 GiB on the head and 11.40 GiB on the worker. We have not observed OOM
+locally during the recorded 9 GiB checks or image publication. That observation
+does not establish safety for every workload; OOM under heavier long-context,
+concurrency or image loads remains possible.
+
+**9 GiB is retained as an optional profile**, not the default. See the profile
+settings below and the separately attributed [external feedback](EXTERNAL_FEEDBACK.md).
 
 The ARM64 runtime image is published on [Docker Hub](https://hub.docker.com/r/technigmaai/glm-5.3-flash-gb10-tp2-native). The registry digest above identifies the published artifact; the local Docker image ID is recorded separately. The native entrypoint and runtime overlays come from this repository through Compose bind mounts, so use the deployment instructions below after pulling the image.
 
 ### Choose C4 or C6
 
-Two serving profiles have passed basic validation on this two-node cluster.
+Both C4 and C6 were checked at 9 GiB previously. The current 8 GiB / C6
+profile passed the restart and basic checks on 2026-10-04.
 `C4` and `C6` mean the maximum running sequence slots (`MAX_NUM_SEQS`); the
 batch token budget is shared across scheduled requests.
 
-| Option | `MAX_NUM_BATCHED_TOKENS` | `MAX_NUM_SEQS` | KV pool per GPU | Recorded KV capacity | Status |
-|---|---:|---:|---:|---:|---|
-| **4,096 / C4** | `4096` | `4` | 9 GiB | 1,533,757 equivalent tokens | Earlier validated profile; more memory headroom in basic checks |
-| **6,144 / C6** | `6144` | `6` | 9 GiB | 1,524,917 equivalent tokens | Currently running; basic checks and warm six-request prefill test passed |
+| Option | `MAX_NUM_BATCHED_TOKENS` | `MAX_NUM_SEQS` | Default KV per GPU | Status |
+|---|---:|---:|---:|---|
+| **4,096 / C4** | `4096` | `4` | 8 GiB | Conservative fresh-install profile |
+| **6,144 / C6** | `6144` | `6` | 8 GiB | Current deployment profile |
 
 Both options retain TP2, port **8000**, the **1,047,552-token context limit**,
 image input, the display-memory patch and the same model aliases. Neither
@@ -85,7 +96,7 @@ Keep host-specific addresses, paths and ranks as configured.
 ```dotenv
 MAX_NUM_BATCHED_TOKENS=4096
 MAX_NUM_SEQS=4
-KV_CACHE_MEMORY=9663676416
+KV_CACHE_MEMORY=8589934592
 ```
 
 **6,144 tokens / C6:**
@@ -93,8 +104,20 @@ KV_CACHE_MEMORY=9663676416
 ```dotenv
 MAX_NUM_BATCHED_TOKENS=6144
 MAX_NUM_SEQS=6
+KV_CACHE_MEMORY=8589934592
+```
+
+For either C4 or C6, the optional 9 GiB setting is:
+
+```dotenv
 KV_CACHE_MEMORY=9663676416
 ```
+
+Its previous recorded capacities were 1,533,757 tokens at C4 and 1,524,917 at
+C6. These are historical 9 GiB measurements, not the current 8 GiB capacity.
+No local OOM was observed in those checks, but a different tester reported
+long-context engine failures at 9 GiB. Review workload memory before selecting
+this optional pool.
 
 After saving the same profile on **both nodes**, run from the head deployment
 folder during a planned interruption:
@@ -114,9 +137,9 @@ and take longer. Both batch sizes now have matching snapshots on this site.
 The Hugging Face model directories remain in their default locations.
 
 For a **fresh deployment**, `.env.example` starts at **4,096 / C4 with 8 GiB KV**
-(`KV_CACHE_MEMORY=8589934592`). Validate that initial boot before trying the
-9 GiB settings above. C6 has less memory headroom; its first uncached load used
-substantial swap. See [validation and limits](#validation-and-limits) for the
+(`KV_CACHE_MEMORY=8589934592`). Validate the initial boot before increasing
+concurrency or trying 9 GiB. The earlier uncached 9 GiB C6 load used substantial
+swap. See [validation and limits](#validation-and-limits) for the
 recorded checks and limitations.
 
 ### Model names
@@ -174,11 +197,11 @@ The [goshi OOM-hardening comparison](https://github.com/kindlingai/glm-5.3-flash
 
 ## KV capacity and headless display memory
 
-`KV_CACHE_MEMORY=9663676416` fixes the current site's logical KV allocation at **9 GiB per GPU**. GPU utilization is a separate memory-budget setting; it does not enlarge this fixed pool.
+`KV_CACHE_MEMORY=8589934592` fixes the current site's logical KV allocation at **8 GiB per GPU**. GPU utilization is a separate memory-budget setting; it does not enlarge this fixed pool.
 
-The local allocator uses 1,792 MiB of display-reserved memory per node within that 9 GiB pool. Roughly 7.25 GiB is therefore backed by ordinary unified memory, subject to the allocator's alignment. The display reservation is **not an extra 1.75 GiB added on top of the configured 9 GiB**. The worker overlay also accounts for registered ordinary memory when adjusting the Torch allocation budget.
+The local allocator uses 1,792 MiB of display-reserved memory per node within that 8 GiB pool. Roughly 6.25 GiB is therefore backed by ordinary unified memory, subject to the allocator's alignment. The display reservation is **not an extra 1.75 GiB added on top of the configured 8 GiB**. The worker overlay also accounts for registered ordinary memory when adjusting the Torch allocation budget.
 
-The validated boot reported **1,524,917 equivalent KV tokens**, approximately **1.46×** the configured maximum context. This is a shared cache-capacity estimate under this profile, not a guaranteed prompt length or a private allowance for every request. Six request slots do not provide six simultaneous million-token contexts. Image processing, recurrent states, speculation and active requests also affect memory availability.
+The current 8 GiB / C6 boot reported **1,352,535 equivalent KV tokens**, approximately **1.29×** maximum context. The earlier 9 GiB / C6 boot reported 1,524,917 tokens (approximately 1.46× maximum context). This is a shared cache-capacity estimate under this profile, not a guaranteed prompt length or a private allowance for every request. Six request slots do not provide six simultaneous million-token contexts. Image processing, recurrent states, speculation and active requests also affect memory availability.
 
 Both nodes must remain headless. The display manager is inactive on the current cluster. Host preparation, when needed on a new system, is an explicit operator action:
 
@@ -412,10 +435,25 @@ curl -fsS "http://${HEAD_IP}:8000/v1/models" | jq
 
 curl -fsS "http://${HEAD_IP}:8000/v1/chat/completions" \
   -H 'Content-Type: application/json' \
-  --data '{"model":"glm53","messages":[{"role":"user","content":"Explain tensor parallelism in two sentences."}],"max_tokens":256,"temperature":0.6}' | jq
+  --data '{"model":"glm53","messages":[{"role":"user","content":"Explain tensor parallelism in two sentences."}],"temperature":0.6}' | jq
 ```
 
 Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The image's template derives from NVIDIA's template and maps `enable_thinking=false` to low reasoning effort rather than promising a completely non-reasoning mode. Temperature and other sampling parameters belong in client requests.
+
+### Reply length
+
+The launcher explicitly passes `--override-generation-config '{"max_new_tokens":null}'`.
+There is no fixed deployment-wide output-token cap. The pinned model already
+had no `max_new_tokens` setting; this override preserves that behavior if a
+model generation configuration later supplies one. Other model sampling
+defaults remain in effect.
+
+When clients omit `max_tokens` / `max_completion_tokens`, vLLM uses the remaining
+context budget. Explicit client limits still apply; generation ends at the
+model's stop condition or context boundary. The examples omit the limit.
+Smoke/concurrency tests intentionally use bounded outputs to make checks finite;
+their request limits are not server defaults. The batch token budget controls
+scheduling and does not limit the total reply length.
 
 ### Image input
 
@@ -424,7 +462,7 @@ Image requests use OpenAI-style content parts. This example uses a PNG data URL 
 ```bash
 image_b64=$(base64 < /path/to/image.png | tr -d '\n')
 jq -n --arg image "data:image/png;base64,$image_b64" \
-  '{model:"glm53",messages:[{role:"user",content:[{type:"text",text:"Describe this image."},{type:"image_url",image_url:{url:$image}}]}],max_tokens:256}' \
+  '{model:"glm53",messages:[{role:"user",content:[{type:"text",text:"Describe this image."},{type:"image_url",image_url:{url:$image}}]}]}' \
   | curl -fsS "http://${HEAD_IP}:8000/v1/chat/completions" \
       -H 'Content-Type: application/json' --data-binary @- | jq
 ```
@@ -433,25 +471,35 @@ Use the MIME type that matches the file. `LIMIT_MM='{"image":32,"video":0}'` is 
 
 ## Validation and limits
 
-The native deployment was validated on **2026-10-03**. The published, host-independent summary is [validation-summary.json](../validation-summary.json). Raw runtime reports and verification logs remain private to the test installation.
+The historical 9 GiB deployment was validated on **2026-10-03**; the current 8 GiB restart and checks are recorded separately in the summary. The published, host-independent summary is [validation-summary.json](../validation-summary.json). Raw runtime reports and verification logs remain private to the test installation.
+
+### Current 8 GiB / C6 checks — 2026-10-04
 
 | Check | Recorded result |
 |---|---|
-| Configuration, source hashes, image and mount integrity | Passed on both nodes |
-| Built-in startup self-test | Passed |
+| Configuration, source and startup port checks | Passed on both nodes |
+| Snapshot restore and built-in startup self-test | Passed |
 | Model aliases | All four site aliases passed |
-| Smoke suite | **8/8 passed**, including thinking controls, factual response, tool call, image reading, output limit, context rejection and model metadata |
-| Concurrency | **Six simultaneous 256-token streams**; observed running count 6; zero preemptions |
-| Larger concurrent prefills | Six requests of 13,792–13,930 prompt tokens plus 128 output tokens completed; warm repeat had zero preemptions and peak running count 4 |
-| Display allocator | Active on both nodes; 1,792 MiB allocation per node recorded |
-| Native fabric diagnostic | Approximately **168 Gb/s** in the recorded startup test |
-| KV capacity | **1,524,917 equivalent tokens** reported at boot |
-| Available RAM during warm trial checks | Head minimum **1.15 GiB**; worker minimum **2.77 GiB** |
-| Swap activity during those checks | Head about **966 MiB** swapped out; worker 8 KiB swapped out |
-| Actual million-token request | **Not qualified**; an attempted request remained waiting before prefill and was stopped |
-| 32-image workloads | **Not tested** |
+| Smoke suite | **8/8 passed**, including image reading and tool calls |
+| Concurrency | **Six simultaneous 256-token streams**; peak running 6; zero preemptions; 11.43–14.97 seconds |
+| Request without output-token limits | Passed; natural `stop` completion |
+| KV capacity | **1,352,535 equivalent tokens**; boot estimate **1.29×** maximum context |
+| Available RAM during basic checks | Head minimum **1.71 GiB**; worker minimum **4.17 GiB** |
+| Swap activity during basic checks | **Zero swap-out pages** on both nodes |
+| Container health after checks | Both healthy; no local OOM observed |
+| Larger prefills / million-token workload | **Not repeated or qualified at 8 GiB** |
+| 32-image / maximum-resolution workloads | **Not tested** |
 
-The active 9 GiB / 6,144-token / six-slot profile passed all four alias checks, eight smoke cases and six concurrent 256-token requests after a cached restart; streams took 11.10–14.67 seconds with zero preemptions. Six larger concurrent requests also completed in 29.01–46.69 seconds with zero preemptions. Their peak running count was four because the scheduler admitted prefills within its token budget; six submitted requests need not all be running at once. The initial uncached run completed all six larger requests but recorded one preemption. Its cause remains unconfirmed. The head has limited RAM and uses swap, so this is basic workload validation rather than a maximum-safe-pool determination. The validation summary records both profiles. Raw experiment reports are excluded from this public repository.
+### Historical 9 GiB checks — 2026-10-03
+
+At C6, boot reported **1,524,917 equivalent KV tokens**. The warm checks reached
+minimum available RAM of **1.15 GiB** on the head and **2.77 GiB** on the worker;
+the head swapped out about **966 MiB**. These are historical measurements, not
+the current 8 GiB results. No local OOM was observed. A million-token request
+was not qualified; the earlier attempt remained waiting before prefill and was
+stopped.
+
+The historical 9 GiB / 6,144-token / six-slot profile passed all four alias checks, eight smoke cases and six concurrent 256-token requests after a cached restart; streams took 11.10–14.67 seconds with zero preemptions. Six larger concurrent requests also completed in 29.01–46.69 seconds with zero preemptions. Their peak running count was four because the scheduler admitted prefills within its token budget; six submitted requests need not all be running at once. The initial uncached run completed all six larger requests but recorded one preemption. Its cause remains unconfirmed. The head has limited RAM and uses swap, so this is basic workload validation rather than a maximum-safe-pool determination. The validation summary records both profiles. Raw experiment reports are excluded from this public repository.
 
 The context setting and cache estimate are boot evidence, not completed million-token workload validation. Long-context testing is reserved for manual evaluation. There is no qualified broad performance benchmark for this native profile yet, and earlier deployment or upstream throughput tables are not measurements of this exact configuration.
 
@@ -506,7 +554,7 @@ Registry publication is separate from cluster setup; pulling or pushing an image
 
 The earlier transient restart failure came from probing ports with a plain TCP bind after shutdown. Closed connections could remain in `TIME_WAIT`, which was reported as an occupied port even though no process was listening. `preflight.py` now sets `SO_REUSEADDR` before binding. Actual listener and recently closed socket cases were checked; active listeners remain rejected. This launcher fix requires no image rebuild.
 
-The API metrics endpoint is `/metrics`. Use both node logs for distributed failures. Increasing the context limit or KV pool requires renewed memory and workload validation; the current site retains the tested 9 GiB pool.
+The API metrics endpoint is `/metrics`. Use both node logs for distributed failures. Increasing the context limit or KV pool requires renewed memory and workload validation; the current site uses 8 GiB, with 9 GiB available as an optional tuning profile.
 
 ## Repository layout
 

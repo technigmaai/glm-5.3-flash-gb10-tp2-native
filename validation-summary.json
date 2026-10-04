@@ -1,18 +1,30 @@
 {
-  "validated_on": "2026-10-03",
+  "validated_on": "2026-10-04",
   "hardware": "Two Linux ARM64 NVIDIA GB10 nodes; native TP2; one container per node",
   "source_commit": "c748079d45e6e070b2acb108a91edfe52f4a7747",
   "vllm_commit": "ddd6fbca148a867aad1fcab7ec72f582b9977db4",
   "shared_settings": {
     "api_port": 8000,
     "max_model_len": 1047552,
-    "kv_cache_memory_bytes_per_gpu": 9663676416,
+    "kv_cache_memory_bytes_per_gpu": 8589934592,
     "kv_cache_dtype": "fp8_e4m3",
     "images_per_prompt_limit": 32,
     "video_per_prompt_limit": 0,
-    "display_memory_bytes_per_gpu": 1879048192
+    "display_memory_bytes_per_gpu": 1879048192,
+    "server_output_token_cap": null
   },
-  "profiles": {
+  "startup_port_guard": {
+    "SO_REUSEADDR": true,
+    "actual_listener_rejected_on_both_nodes": true,
+    "real_TIME_WAIT_accepted_on_both_nodes": true
+  },
+  "limitations": [
+    "Million-token context setting is not a completed million-token workload test.",
+    "Maximum image-count/resolution workloads have not been tested.",
+    "Basic workload checks do not determine the maximum safe KV pool or qualify production workloads.",
+    "Prefill queueing below MAX_NUM_SEQS is allowed by the batch token budget."
+  ],
+  "historical_9GiB_profiles": {
     "4096-C4": {
       "max_num_batched_tokens": 4096,
       "max_num_seqs": 4,
@@ -31,7 +43,9 @@
       "minimum_available_RAM_GiB": {
         "head": 1.4019,
         "worker": 4.4139
-      }
+      },
+      "kv_cache_memory_bytes_per_gpu": 9663676416,
+      "validated_on": "2026-10-03"
     },
     "6144-C6": {
       "max_num_batched_tokens": 6144,
@@ -67,18 +81,60 @@
         "head": 1.1535,
         "worker": 2.7736
       },
-      "cold_boot_caveat": "Initial uncached load used substantial swap; all six larger requests completed but one preemption was recorded. Cause unconfirmed."
+      "cold_boot_caveat": "Initial uncached load used substantial swap; all six larger requests completed but one preemption was recorded. Cause unconfirmed.",
+      "kv_cache_memory_bytes_per_gpu": 9663676416,
+      "validated_on": "2026-10-03"
     }
   },
-  "startup_port_guard": {
-    "SO_REUSEADDR": true,
-    "actual_listener_rejected_on_both_nodes": true,
-    "real_TIME_WAIT_accepted_on_both_nodes": true
-  },
-  "limitations": [
-    "Million-token context setting is not a completed million-token workload test.",
-    "Maximum image-count/resolution workloads have not been tested.",
-    "Basic workload checks do not determine the maximum safe KV pool or qualify production workloads.",
-    "Prefill queueing below MAX_NUM_SEQS is allowed by the batch token budget."
-  ]
+  "local_9GiB_OOM_observation": "No local OOM observed in recorded checks or image publication; OOM is possible under heavier or different workloads.",
+  "external_feedback": "docs/EXTERNAL_FEEDBACK.md; reported by a separate tester, not independently reproduced locally.",
+  "current_8GiB_profile": {
+    "validated_on": "2026-10-04",
+    "max_num_batched_tokens": 6144,
+    "max_num_seqs": 6,
+    "kv_cache_memory_bytes_per_gpu": 8589934592,
+    "kv_capacity_tokens": 1352535,
+    "boot_reported_max_context_concurrency": 1.29,
+    "startup_self_test": "passed",
+    "configuration_and_port_checks": "passed on both nodes",
+    "model_alias_checks_passed": 4,
+    "smoke_checks_passed": 8,
+    "image_input": "passed; single image",
+    "tool_call": "passed",
+    "concurrent_256_token_streams": {
+      "completed": 6,
+      "peak_running": 6,
+      "preemptions": 0,
+      "elapsed_seconds_range": [
+        11.43,
+        14.97
+      ]
+    },
+    "request_without_output_limits": {
+      "request_omits_output_limits": true,
+      "finish_reason": "stop",
+      "content": "Paris",
+      "usage": {
+        "prompt_tokens": 20,
+        "total_tokens": 23,
+        "completion_tokens": 3,
+        "prompt_tokens_details": null,
+        "completion_tokens_details": {
+          "reasoning_tokens": 0
+        }
+      },
+      "running_override_verified": true
+    },
+    "minimum_available_RAM_GiB_during_basic_checks": {
+      "head": 1.7113,
+      "worker": 4.1686
+    },
+    "swapout_pages_during_basic_checks": {
+      "head": 0,
+      "worker": 0
+    },
+    "local_OOM_observed": false,
+    "both_containers_healthy_after_checks": true,
+    "larger_prefill_and_million_context_validation": "Not repeated on this 8 GiB profile; historical 9 GiB results are separate."
+  }
 }
