@@ -64,7 +64,9 @@ all submitted requests run at once. See [profile details](docs/DEPLOYMENT.md#cho
 Prepare two headless Linux ARM64 GB10 hosts with Docker, Compose v2, the NVIDIA
 container runtime, working RoCE and passwordless SSH from head to worker.
 Follow the [full setup guide](docs/DEPLOYMENT.md#deployment) for host preparation,
-pinned model downloads, device access and node settings.
+pinned model downloads, device access and node settings. See
+[first-boot troubleshooting](docs/DEPLOYMENT.md#troubleshooting-first-boot) for
+DRM modesetting, host OOM daemons, model-cache mounts and startup failures.
 
 On **both nodes**:
 

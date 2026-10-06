@@ -220,7 +220,7 @@ These instructions are for a **fresh two-node deployment**. An existing installa
 
 Use two compatible GB10 Linux ARM64 nodes with Docker Engine, Docker Compose v2, NVIDIA Container Toolkit, usable matching GPU drivers and working RoCE. Install Python 3, Bash, SSH, `flock`, `ip`, `nvidia-smi`, `curl` and `jq` on the hosts, and the Hugging Face CLI for downloads. The upstream image build also needs Git and access to its source submodules.
 
-Make both nodes headless as described under [headless display memory](#kv-capacity-and-headless-display-memory). Configure two RoCE fabric links with static IPv4 addresses, MTU 9000 and valid RoCE v2 GIDs. Configure passwordless SSH from the head to the worker. Leave both GPUs idle before the first start.
+Make both nodes headless as described under [headless display memory](#kv-capacity-and-headless-display-memory), and verify [DRM modesetting](#drm-modesetting) on both nodes. Review [host OOM daemons](#host-oom-daemons) before an initial checkpoint load. Configure two RoCE fabric links with static IPv4 addresses, MTU 9000 and valid RoCE v2 GIDs. Configure passwordless SSH from the head to the worker. Leave both GPUs idle before the first start.
 
 The example network throughout this guide is:
 
@@ -319,7 +319,7 @@ Copy only for a fresh installation: do not overwrite an existing working `.env`.
 | `PEER_DEPLOY_DIR` | Absolute checkout path on worker | May be empty: `PEER_DEPLOY_DIR=` |
 | `DRM_CARD_GID` | Group ID printed on head | Group ID printed on worker |
 
-Also replace **every `/home/your-user` path** in the template: target cache, drafter cache, native cache, logs and snapshot seed. Set `IMAGE` to the installed patched tag on each host. `MODEL_DIR` and `DFLASH_MODEL` are paths **inside the container** and already point at the pinned revisions; leave them unchanged.
+Also replace **every `/home/your-user` path** in the template: target cache, drafter cache, native cache, logs and snapshot seed. Set `IMAGE` to the installed patched tag on each host. `MODEL_DIR` and `DFLASH_MODEL` are paths **inside the container** and already point at the pinned revisions; leave them unchanged for the default cache layout. For a flat download, use the mount itself as described under [model paths](#model-paths-and-tokenizer-errors).
 
 Use literal absolute paths in `.env`, not `~`, `$HOME` or references to other variables: the launcher, Compose and Python settings reader all consume it. Quote values containing spaces or JSON as shown in the example. `FABRIC_SUBNETS` takes IPv4 prefixes ending in a dot, not CIDR strings such as `10.20.0.0/24`.
 
@@ -360,7 +360,7 @@ Run these commands locally on **each node**, from its checkout:
 ./cluster.sh config
 ```
 
-`check` verifies source hashes, the installed image, bind-source paths, model configs and rank/role consistency. `config` only renders the resolved Compose configuration; it does not configure the host or start containers. Correct any failure before starting.
+`check` verifies source hashes, the installed image, bind-source paths, model configs, tokenizer files, model symlinks, indexed weight shards, DRM modesetting and rank/role consistency. It only inspects metadata and file presence; it does not read weight contents or allocate GPU memory. An active `earlyoom` service produces an advisory warning. `config` only renders the resolved Compose configuration; it does not configure the host or start containers. Correct any failure before starting.
 
 ### 7. Start and verify from the head
 
@@ -535,9 +535,106 @@ Registry publication is separate from cluster setup; pulling or pushing an image
 
 `display-kv/` includes the exact compiled ARM64 helper and its C source. A fresh rebuild may produce a different image ID; verify its contents and workload behavior before assigning it to a serving profile. Transfer the finished image to the worker with `docker save`/`docker load` or your registry, and compare image identities. These are reconstruction instructions; no new rebuild was performed for this documentation update.
 
-`install-assets.py --source-root /path/to/pinned-kindling --display-patch-dir /path/to/matching-display-patch` refreshes vendored source files and applies the native snapshot selector. It can overwrite local source edits. `manifest.json` records SHA-256 hashes; update the corresponding entries after intentional edits and run `cluster.sh check` on both nodes. Preserve matching source and image versions, and revalidate inference when behavior changes.
+`install-assets.py --source-root /path/to/pinned-kindling --display-patch-dir /path/to/matching-display-patch` refreshes vendored source files and applies the native snapshot selector. It can overwrite local source edits. `manifest.json` records SHA-256 hashes; update the corresponding entries after intentional edits and run `cluster.sh check` on both nodes. Preserve matching source and image versions, and revalidate inference when behavior changes. The host-check regression suite runs without Docker, GPU access or model downloads:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
 
 ## Troubleshooting
+
+### Troubleshooting first boot
+
+These instructions incorporate [fresh-install feedback from tanbuikim7 (#697)](https://forums.developer.nvidia.com/t/glm-5-3-flash-320b-total-parameters-18b-active/381350/697). They describe diagnostics and conditional remedies, not a requirement to disable memory protection on every installation. Community throughput and quality scores are not measurements of this deployment's local validation.
+
+Read **both nodes' logs**, locally on each node:
+
+```bash
+docker logs --tail 150 glm53-native
+docker inspect glm53-native --format '{{json .State}}'
+```
+
+A head-side `Engine core initialization failed` or a peer's `TCPStore ... Connection was likely closed` can be secondary to another rank failing. Start with the earliest error on either node. A surviving worker's health check only confirms that its TP worker process exists; it does not prove that the pair is serving. Inspect the head API and both ranks. If a rank has failed, stop the pair from the head with `./cluster.sh stop --approved`, resolve the cause, then start it again. Do not stop a healthy cluster merely to run these diagnostics.
+
+### Host OOM daemons
+
+The first load without a matching complete optimized snapshot has higher transient RAM and swap demand than a cached restart. A host daemon such as `earlyoom` can send SIGTERM/SIGKILL to a worker during checkpoint loading. Docker can still report `OOMKilled=false`: that flag is not proof that a userspace memory daemon did not terminate a process. [earlyoom documents its memory/swap thresholds and signals](https://github.com/rfjakob/earlyoom).
+
+On **both hosts**, inspect the service, memory, swap and journal:
+
+```bash
+systemctl is-active earlyoom
+sudo journalctl -u earlyoom --since '-30min' --no-pager
+free -h
+swapon --show
+# Check kernel OOM messages separately:
+sudo journalctl -k --since '-30min' --no-pager | grep -Ei 'out of memory|oom|killed process'
+```
+
+Look for a signal sent to a vLLM worker at the time it disappeared. An active service alone does not confirm the cause. If the journal confirms this problem, prepare adequate swap and stop unrelated RAM/GPU workloads. For a supervised initial load, an operator may temporarily stop `earlyoom` on both nodes:
+
+```bash
+sudo systemctl stop earlyoom
+# Complete the startup and verify both nodes, then restore the service if it was active:
+sudo systemctl start earlyoom
+```
+
+The launcher does not stop, disable, mask or reconfigure this service. While it is stopped, its protection is absent and the kernel can still kill processes. Monitor both nodes during the load. After restoring it, verify that its thresholds are compatible with the running workload; a completed snapshot does not guarantee immunity. Alternatively review the daemon's thresholds or targeted exclusions using its installed version's documentation. Reducing KV memory can help runtime headroom but may not resolve a checkpoint-loading peak that happens before the KV pool is allocated.
+
+### DRM modesetting
+
+Display-backed KV requires **both** a stopped display manager **and** NVIDIA DRM KMS enabled. `modeset=1` enables DRM capabilities; it does not require a desktop session. The allocator uses DRM dumb buffers, which [NVIDIA documents as part of DRM KMS](https://download.nvidia.com/XFree86/Linux-aarch64/580.95.05/README/kms.html).
+
+Check both hosts:
+
+```bash
+systemctl is-active display-manager
+sudo cat /sys/module/nvidia_drm/parameters/modeset
+stat -c '%g' /dev/dri/card0
+sudo modprobe --showconfig | grep -E '^options[[:space:]]+nvidia[-_]drm'
+cat /proc/cmdline
+```
+
+The display manager must be inactive and `modeset` must report `Y` (or `1`). Some DGX OS images expose this sysfs parameter as root-only (`0400`). The checker first tries a normal read, then `sudo -n cat` without a password prompt. If neither can read it, it warns that the prerequisite remains unverified; run the privileged read manually before startup. A readable `N`/`0` is a configuration error. The checker never changes file permissions or module settings. Set `DRM_CARD_GID` to the group printed by `stat`. `RuntimeError: DRM create scanout: Function not implemented` is a reason to check modesetting first; enabling it does not qualify every driver/kernel combination.
+
+Inspect `/etc/modprobe.d/`, `/lib/modprobe.d/` and boot parameters for conflicting `modeset=0` settings. The community report found one in `zz-nvidia-drm-override.conf`; that filename is not universal. During planned host maintenance, resolve the conflicting settings so the effective option is `options nvidia-drm modeset=1`. On Ubuntu/DGX OS, regenerate the initramfs with `sudo update-initramfs -u`, then reboot and recheck the live sysfs value. Do not unload `nvidia_drm` while a model or display workload is active. The deployment never edits module settings, regenerates initramfs or reboots hosts.
+
+An alternative is `GLM53_DISPLAY_KV_ENABLE=0` on **both** nodes followed by a planned cluster restart. The DRM modeset check is skipped in that case. This removes the 1.75 GiB display contribution from each pool and places the entire allocation in ordinary GPU/unified memory; reduce the KV pool and revalidate memory/workloads rather than assuming that the 8 GiB profile remains safe. Other host/device requirements still apply.
+
+### Model paths and tokenizer errors
+
+Hugging Face cache snapshots normally contain relative links such as `tokenizer.json -> ../../blobs/<hash>`. This is the [standard cache layout](https://huggingface.co/docs/huggingface_hub/guides/manage-cache). Mount the complete per-model cache directory containing **both `blobs/` and `snapshots/`**, and preserve that structure when copying it to the worker. A snapshot-only mount or a cache copied without blobs can make files accessible on the host but broken inside the container. Moving or duplicating weights outside the cache is unnecessary for the default recipe.
+
+For the default target cache:
+
+```dotenv
+MODEL_HOST_DIR=/home/your-user/.cache/huggingface/hub/models--nvidia--GLM-5.3-Flash-NVFP4
+MODEL_DIR=/models/glm-5.3-flash-nvfp4/snapshots/da920bb0b9f4a06727223a349e55468e38352348
+```
+
+A **complete flat download** is also supported:
+
+```dotenv
+MODEL_HOST_DIR=/home/your-user/models/glm-5.3-flash-nvfp4
+MODEL_DIR=/models/glm-5.3-flash-nvfp4
+DFLASH_HOST_DIR=/home/your-user/models/glm-5.3-flash-dflash2
+DFLASH_MODEL=/models/glm-5.3-flash-dflash2
+```
+
+Each flat directory contains its own `config.json` and weight files; the target also needs tokenizer/processor assets. It must not be a copied snapshot whose links still point outside the mounted directory. Both the bare mount path and a trailing `/.` work: `check.py` now maps them to the host mount root correctly. Host paths can differ between nodes; the in-container model paths must match. Relative model-file symlinks must resolve within their model mount. Absolute host symlinks are rejected because Docker does not relocate their targets.
+
+`./cluster.sh check` now reports missing/empty tokenizer files, broken or escaping model symlinks and missing indexed safetensors shards before containers start. It checks files, not tokenizer compatibility or weight checksums. If these checks pass but tokenizer initialization still fails, retain the full traceback and exact model/image revisions; do not assume a Hugging Face version incompatibility from symlinks alone.
+
+### Disk space and first-request compilation
+
+A first uncached TP2 load writes roughly 90 GiB of optimized target/draft tensors per node for this pinned stack, in addition to the original model cache and JIT artifacts. Reserve at least **100 GiB free under `CACHE_HOST_DIR` on each node** for the first snapshot, plus space for JIT files and any additional profile-specific snapshots. Changed batch-token budgets can create another snapshot set. Confirm with `df -h /actual/native/cache/path`. A completed exact-key snapshot can be reused; a partial snapshot is not a successful load.
+
+Stop unrelated memory/GPU consumers before first boot and inspect RAM and swap separately from disk space. The host preflight's 100 GiB available-RAM minimum is an admission check, not a promise that all loading peaks fit. A `WARN host memory` estimate in the in-container upstream diagnostics is advisory and includes its own budgeting assumptions.
+
+`Triton kernel JIT compilation during inference` warnings on first requests can reflect one-time compilation and latency. Inspect subsequent errors if a request fails; the warning alone does not establish a crash. Full inference verification is still required after startup.
+
+### Common symptoms
 
 | Symptom | Checks / action |
 |---|---|
@@ -546,7 +643,9 @@ Registry publication is separate from cluster setup; pulling or pushing an image
 | Worker or rank failure | Inspect both containers and fabric, then restart the pair after resolving the cause |
 | Preflight reports occupied ports or GPU | An active listener or GPU workload prevents startup. The port guard uses `SO_REUSEADDR`, so a recently closed TCP socket in `TIME_WAIT` does not cause a false conflict. Do not run idle-resource preflight against an intentionally live deployment |
 | RoCE preflight fails | Verify configured prefixes, link state, MTU and IPv4-mapped RoCE v2 GIDs on both PCIe roots |
-| OOM or heavy swap | Check both nodes' available memory, desktop services, other jobs, batched-token budget, active contexts and image sizes |
+| OOM or heavy swap | Inspect both-node memory/swap and [host OOM daemon logs](#host-oom-daemons), even when `OOMKilled=false` |
+| DRM scanout not implemented | Verify [DRM modesetting](#drm-modesetting), headless state and device access on both nodes |
+| Tokenizer/config file missing | Check [model mount paths and symlinks](#model-paths-and-tokenizer-errors); run `cluster.sh check` on each node |
 | Slow first boot | Processed snapshots may be absent; the initial checkpoint load creates them |
 | Hash mismatch | Inspect the named source change, synchronize intended files and update its manifest hash |
 | Image rejected by the API | Check `LIMIT_MM`, content-part format, MIME type and the selected model alias |
@@ -565,7 +664,8 @@ The API metrics endpoint is `/metrics`. Use both node logs for distributed failu
 | `.env` | Private node settings; keep out of a public source repository |
 | `cluster.sh` | Coordinated lifecycle and verification commands |
 | `entrypoint.sh` | Native ranks, fabric setup, vLLM arguments and startup checks |
-| `check.py`, `preflight.py`, `healthcheck.py` | Integrity, idle-resource and running-container checks |
+| `check.py`, `deployment_checks.py`, `preflight.py`, `healthcheck.py` | Integrity, model paths/files, DRM, idle-resource and running-container checks |
+| `tests/test_deployment_checks.py` | CPU-only regression checks for mount paths, model files and DRM prerequisites |
 | `experimental/` | Pinned Kindling runtime overlays |
 | `display-kv/` | Local display-memory allocator integration and provenance |
 | `smoketest/`, `verify-api.py`, `verify-concurrency.py` | API, image and concurrency validation |

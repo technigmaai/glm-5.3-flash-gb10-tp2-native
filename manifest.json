@@ -3,11 +3,11 @@
   "native_entrypoint_sha256": "3148c289968b1ccd29f5617fce5ae707a7fdc2080cf9ac99029a9cadb1bc105c",
   "base_image": "technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130",
   "files": {
-    ".env.example": "3ea259770605adf27c494ab162e01ea6568a18f607f9923b21d7f71bd6685d90",
+    ".env.example": "27961bac81befb5f491db4366536a7d6fa94a523c133e6c8123ce91bfed5154c",
     ".gitignore": "515e7cd0f7c3756327940dbb26243affbbd1069a37d323d4e18e786db1baedb4",
-    "README.md": "37762f449980d011c064b24f6addcf63e01a954b1f7f2ecb1d07f3f0e9a0c456",
+    "README.md": "754b1f036c2713d552270b473dff814920caccf323ca61075b5542c9829bb602",
     "THIRD_PARTY.md": "c01f88ecc3ef11f88eae6086dd7f27a42eb9aa1fa9614aae6078bf905cbb8338",
-    "check.py": "1b7d7c2554d63849419be3924cf2f21603c07fd0cf8fd8b58b2f8069b0453f05",
+    "check.py": "120eec673ad10bdb5275e8545efccbf4b5d8043a251c82a1bb97fb7f9df691d6",
     "cluster.sh": "9803e2904323ed9a4e228150135038d518b49e9b7ff5bc36eededee642220bf1",
     "compose.json": "6e7a69b209753cad812378cbfad1772edd5668569971fea74c31b5a3becce096",
     "configure.py": "0b047a384a571fa362d7cc60dfb80168068f5d2afc49c240203c797b7bbb2f5b",
@@ -71,7 +71,9 @@
     "validation-summary.json": "106df5b9b2c29f5f67ca2278321043ded76d5d97c82eb833fd35167701cbd6cc",
     "verify-api.py": "4f805d6c2793467608f62533a3fefd0dac16fd1ae679cbbaa05ad19d1d2fff85",
     "verify-concurrency.py": "44739f269a0ff0661f4bd8e495d7ab65c8f6f8668f3d1d0b32e3813079d1def5",
-    "docs/DEPLOYMENT.md": "af2c284ee139fd272682980f7ef6c93025660f9745c3411583d3d5bd283556e9",
-    "docs/EXTERNAL_FEEDBACK.md": "7fead7e51614fa22d13fdb9aacdfc59a0b53c326de9f4b95af352d8400fe9c15"
+    "docs/DEPLOYMENT.md": "d9aa9a000e25d39d6ee75d49ea34c46010dabcb9cccdc4386cbc744e79c843e9",
+    "docs/EXTERNAL_FEEDBACK.md": "7fead7e51614fa22d13fdb9aacdfc59a0b53c326de9f4b95af352d8400fe9c15",
+    "deployment_checks.py": "0adfff8e274cc5eaa7719a308c52d79b67a3dc2ee9ab19ba105c84ececebf7e0",
+    "tests/test_deployment_checks.py": "8d69ba60af93f1d485405c5b5125c3ccae9b92f426c56b055a2d5966c9cb774a"
   }
 }
