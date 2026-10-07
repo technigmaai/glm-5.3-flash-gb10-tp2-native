@@ -2,36 +2,37 @@
 """Copy required source assets to the isolated folder; do not operate containers."""
 import ast
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
+import sys
 import tempfile
 
-root = Path(__file__).resolve().parent
+root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument('--source-root', type=Path, required=True, help='Pinned Kindling source checkout')
 parser.add_argument('--display-patch-dir', type=Path, required=True, help='Matching display-memory patch source')
 args = parser.parse_args()
 origin = args.source_root.resolve()
 display = args.display_patch_dir.resolve()
-for relative in json.loads((root / 'copy-assets.json').read_text()):
+for destination_name, relative in json.loads((root / 'manifests/copy-assets.json').read_text()).items():
     source = display / Path(relative).name if relative.startswith("display-kv/") else origin / relative
-    destination = root / relative
+    destination = root / destination_name
     destination.parent.mkdir(parents=True, exist_ok=True)
     if source.resolve() != destination.resolve():
         shutil.copy2(source, destination)
 # Keep allocator provenance and source alongside the exact mounted Python file.
 for source in display.iterdir():
-    if source.is_file() and source.suffix != '.pyc':
-        if source.resolve() != (root / 'display-kv' / source.name).resolve():
-            shutil.copy2(source, root / 'display-kv' / source.name)
+    if source.is_file() and source.suffix != '.pyc' and source.name != 'Dockerfile':
+        if source.resolve() != (root / 'files/display-kv' / source.name).resolve():
+            shutil.copy2(source, root / 'files/display-kv' / source.name)
 
 # Snapshot processing and keys remain unchanged. Prefer this deployment's own
 # cache; optionally restore existing exact-key snapshots through a read-only bind.
 # New or changed snapshots are written only to the isolated native cache.
-p = root / 'experimental/snapshot/weight_snapshot.py'
+p = root / 'files/overlays/snapshot/weight_snapshot.py'
 s = p.read_text()
 anchor = '        return cls(os.path.join(base, name), key)'
 assert s.count(anchor) == 1
@@ -82,13 +83,6 @@ finally:
         else:
             os.environ[key] = value
 
-manifest = json.loads((root / 'manifest.json').read_text())
-manifest['files'] = {}
-for path in sorted(root.rglob('*')):
-    relative = path.relative_to(root)
-    private_dirs = {'.git', '__pycache__', 'site', 'experiments', '.venv', 'cache', 'logs', 'models', 'weight-snapshots'}
-    private_file = path.name in {'manifest.json', '.env', 'SITE.md', '.cluster.lock'} or (path.name.startswith('.env.') and path.name != '.env.example') or (path.name.startswith('validation') and path.name != 'validation-summary.json')
-    if path.is_file() and not private_file and path.suffix not in {'.log', '.pyc', '.safetensors', '.gguf', '.tar', '.tgz'} and not private_dirs.intersection(relative.parts):
-        manifest['files'][str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
-(root / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-print('Independent source assets copied; snapshot isolation cases PASS; manifest updated')
+# Hash only tracked source, so private backups and node settings stay private.
+subprocess.run([sys.executable, str(root / 'scripts/update-manifest.py')], check=True)
+print('Independent source assets copied; snapshot isolation cases PASS; tracked manifest updated')
