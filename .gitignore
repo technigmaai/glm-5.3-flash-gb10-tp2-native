@@ -24,3 +24,11 @@ weight-snapshots/
 *.tar.gz
 *.tgz
 .DS_Store
+
+# Local backups, staging and Apple metadata
+.env-*
+._*
+.AppleDouble/
+backups/
+reports/
+*.bundle

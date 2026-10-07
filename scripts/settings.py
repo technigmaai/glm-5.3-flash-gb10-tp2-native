@@ -4,7 +4,7 @@ import shlex
 
 
 def load_settings(root=None):
-    root = Path(root) if root else Path(__file__).resolve().parent
+    root = Path(root) if root else Path(__file__).resolve().parents[1]
     values = {}
     for line in (root / '.env').read_text().splitlines():
         line = line.strip()

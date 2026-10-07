@@ -10,15 +10,15 @@ from settings import load_settings
 
 
 def main():
-    root = Path(__file__).resolve().parent
+    root = Path(__file__).resolve().parents[1]
     settings = load_settings(root)
-    manifest = json.loads((root / 'manifest.json').read_text())
+    manifest = json.loads((root / 'manifests/source.json').read_text())
     for name, expected in manifest['files'].items():
         assert hashlib.sha256((root / name).read_bytes()).hexdigest() == expected, name
-    for name in ('entrypoint.sh', 'cluster.sh', 'legacy.sh'):
+    for name in ('files/entrypoint.sh', 'scripts/cluster.sh', 'scripts/legacy.sh', 'start.sh', 'stop.sh', 'restart.sh', 'status.sh', 'tail-log.sh', 'check.sh', 'sync-repo.sh', 'verify.sh'):
         subprocess.run(['bash', '-n', str(root / name)], check=True)
     rendered = subprocess.check_output(['docker', 'compose', '--env-file', str(root / '.env'),
-        '-p', settings.get('PROJECT_NAME', 'glm53-native'), '-f', str(root / 'compose.json'),
+        '-p', settings.get('PROJECT_NAME', 'glm53-native'), '-f', str(root / 'compose.yaml'),
         'config', '--format', 'json'], text=True)
     services = json.loads(rendered)['services']
     assert list(services) == ['glm53'], 'Expected exactly one model service'
@@ -50,7 +50,7 @@ def main():
         print(f'WARN: {advisory}', file=sys.stderr)
     if subprocess.run(['systemctl', 'is-active', '--quiet', 'earlyoom'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         print('WARN: earlyoom is active; it can terminate a cold checkpoint load. Inspect its journal and see docs/DEPLOYMENT.md#host-oom-daemons.', file=sys.stderr)
-    print(f'{env["ROLE"]}: configuration, model files/symlinks, mounts, image and source integrity PASS (review any host warnings); runtime results are in validation.json')
+    print(f'{env["ROLE"]}: configuration, model files/symlinks, mounts, image and source integrity PASS (review any host warnings); recorded validation is in manifests/validation-summary.json')
 
 
 if __name__ == '__main__':

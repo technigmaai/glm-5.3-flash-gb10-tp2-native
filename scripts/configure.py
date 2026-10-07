@@ -16,7 +16,7 @@ p.add_argument('--snapshot-seed', default='', help='Optional existing read-only 
 p.add_argument('--drm-gid', default='44')
 p.add_argument('--force', action='store_true', help='Explicitly replace an existing .env')
 a = p.parse_args()
-root = Path(__file__).resolve().parent
+root = Path(__file__).resolve().parents[1]
 out = root / '.env'
 if out.exists() and not a.force:
     p.error('.env exists; use --force only if you intend to replace node settings')

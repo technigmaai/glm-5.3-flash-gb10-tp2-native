@@ -6,7 +6,7 @@ on **port 8000**.
 
 [Docker Hub](https://hub.docker.com/r/technigmaai/glm-5.3-flash-gb10-tp2-native)
 · [Full setup guide](docs/DEPLOYMENT.md#deployment)
-· [Validation summary](validation-summary.json)
+· [Validation summary](manifests/validation-summary.json)
 
 Derived from [Kindling AI's GLM recipe](https://github.com/kindlingai/glm-5.3-flash-gx10/tree/c748079d45e6e070b2acb108a91edfe52f4a7747).
 It retains the GB10 optimizations, DFlash2 speculation, adaptive-k, RecoverSSM
@@ -75,11 +75,12 @@ git clone https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native.git
 cd glm-5.3-flash-gb10-tp2-native
 docker pull technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130
 cp .env.example .env
+chmod 600 .env
 ```
 
 Edit `.env` for each node's role/rank, addresses, fabric prefixes, SSH target and
 absolute paths. Download the pinned target and draft models into each user's
-default Hugging Face cache as described in the guide. `configure.py` is optional.
+default Hugging Face cache as described in the guide. `scripts/configure.py` is optional.
 
 The image supplies the runtime; **this repository supplies the native entrypoint
 and overlays through Compose bind mounts**. Use the complete recipe when starting
@@ -90,25 +91,38 @@ Clients may still impose their own limits, and the model may stop earlier.
 After both nodes are configured and their models are ready, run from the head:
 
 ```bash
-./cluster.sh check
-./cluster.sh start --approved
-./cluster.sh status
+./check.sh
+./start.sh --approved
+./status.sh
 # Wait for API health and the startup self-test, then:
-./cluster.sh verify
+./verify.sh
 ```
 
 ## Operations
 
 ```bash
-./cluster.sh status
-./cluster.sh logs --tail 80
-./cluster.sh restart --approved
-./cluster.sh stop --approved
+./check.sh
+./status.sh
+./tail-log.sh head --tail 80
+./tail-log.sh worker --tail 80
+./restart.sh --approved
+./stop.sh --approved
 ```
+
+The short root scripts share one implementation under `scripts/`. Each node
+keeps its own private `.env`. To synchronize source from the head while both
+deployment folders are offline, use `./sync-repo.sh --dry-run`, review it,
+then `./sync-repo.sh --approved`. Git metadata and node settings are preserved.
+Source synchronization is explicit; start does not overwrite worker files.
 
 To switch C4/C6, edit both `.env` files and restart the pair during a planned
 interruption. Changed batch sizes need matching optimized snapshots; a missing
 snapshot causes a slower initial load. No automatic watchdog is installed.
+
+See [source updates](docs/DEPLOYMENT.md#updating-an-existing-deployment) and
+[layout migration and rollback](docs/LAYOUT_MIGRATION.md) for existing
+installations. All runtime source belongs to this folder; models, caches and
+logs keep their configured external locations.
 
 ## Validation and limits
 
@@ -118,13 +132,15 @@ with zero preemptions. Boot reported **1,352,535 shared KV tokens (1.29× maximu
 context)**. A request with no output-token limit ended normally.
 Historical 9 GiB C4/C6 checks remain recorded separately, including the larger
 prefill test; no OOM was observed locally in those checks.
+The reorganized layout was restarted and revalidated on **2026-10-07** with
+the same results and unchanged runtime settings.
 
 **An actual million-token workload is not qualified for this native profile.**
 The KV capacity is shared; six slots do not provide six simultaneous million-token
 contexts. Maximum image-count/resolution workloads are also untested. The head
 has limited free RAM; the earlier 9 GiB C6 uncached load used substantial swap.
 
-See [recorded results](validation-summary.json) and
+See [recorded results](manifests/validation-summary.json) and
 [validation details](docs/DEPLOYMENT.md#validation-and-limits).
 
 ## Image rebuild and source maintenance

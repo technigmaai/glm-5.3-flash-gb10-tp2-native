@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Optional adapter for a previous Kindling/Mentat installation.
 set -euo pipefail
-DEPLOY=$(dirname "$(readlink -f "$0")")
+DEPLOY=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 set -a; source "$DEPLOY/.env"; set +a
 [[ ${2:-} == --approved ]] || { echo 'Legacy operations require --approved.' >&2; exit 2; }
 : "${LEGACY_REPO:?Set LEGACY_REPO}" "${LEGACY_LAUNCHER:?Set LEGACY_LAUNCHER}"
