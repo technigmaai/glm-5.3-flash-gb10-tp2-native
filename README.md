@@ -75,6 +75,7 @@ git clone https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native.git
 cd glm-5.3-flash-gb10-tp2-native
 docker pull technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130
 cp .env.example .env
+chmod 600 .env
 ```
 
 Edit `.env` for each node's role/rank, addresses, fabric prefixes, SSH target and
@@ -110,7 +111,7 @@ After both nodes are configured and their models are ready, run from the head:
 
 The short root scripts share one implementation under `scripts/`. Each node
 keeps its own private `.env`. To synchronize source from the head while both
-new deployment folders are offline, use `./sync-repo.sh --dry-run`, review it,
+deployment folders are offline, use `./sync-repo.sh --dry-run`, review it,
 then `./sync-repo.sh --approved`. Git metadata and node settings are preserved.
 Source synchronization is explicit; start does not overwrite worker files.
 
@@ -118,7 +119,8 @@ To switch C4/C6, edit both `.env` files and restart the pair during a planned
 interruption. Changed batch sizes need matching optimized snapshots; a missing
 snapshot causes a slower initial load. No automatic watchdog is installed.
 
-See [layout migration and rollback](docs/LAYOUT_MIGRATION.md) for existing
+See [source updates](docs/DEPLOYMENT.md#updating-an-existing-deployment) and
+[layout migration and rollback](docs/LAYOUT_MIGRATION.md) for existing
 installations. All runtime source belongs to this folder; models, caches and
 logs keep their configured external locations.
 
@@ -130,6 +132,8 @@ with zero preemptions. Boot reported **1,352,535 shared KV tokens (1.29× maximu
 context)**. A request with no output-token limit ended normally.
 Historical 9 GiB C4/C6 checks remain recorded separately, including the larger
 prefill test; no OOM was observed locally in those checks.
+The reorganized layout was restarted and revalidated on **2026-10-07** with
+the same results and unchanged runtime settings.
 
 **An actual million-token workload is not qualified for this native profile.**
 The KV capacity is shared; six slots do not provide six simultaneous million-token

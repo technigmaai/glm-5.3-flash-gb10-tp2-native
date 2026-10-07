@@ -6,6 +6,21 @@ short operator scripts and one compose.yaml; runtime files live under files/,
 implementation helpers under scripts/, image sources under image/ and integrity
 records under manifests/. No file depends on a symlink to an older deployment.
 
+## Recorded validation
+
+On 2026-10-07, the reorganized layout passed a real two-node restart, the startup
+self-test, all four aliases, 8/8 functional checks including image and tool calls,
+and six concurrent short streams with zero preemptions. Both containers were
+healthy afterward. The 8 GiB KV pool retained 1,352,535 shared tokens; image,
+serving settings, external model/cache/log mounts and runtime source bytes matched
+the prior deployment. Existing target and draft snapshots were reused.
+
+The CPU suite passed 26 tests on both nodes, and source synchronization correctly
+refused the now-live deployment folders. See the
+[validation summary](../manifests/validation-summary.json) for recorded details
+and limits. A million-token workload and maximum image count/resolution remain
+untested.
+
 ## Prepare while the current pair serves
 
 1. Back up each COMPLETE existing deployment folder, including hidden files,

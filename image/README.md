@@ -2,9 +2,9 @@
 
 This layout change reuses the published ARM64 image; it does not rebuild it.
 The native entrypoint and pinned overlays are supplied through repository bind
-mounts. Exact provenance and retained licenses are in ../THIRD_PARTY.md;
-runtime image/model/source pins are recorded in ../docs/DEPLOYMENT.md and
-../manifests/source.json.
+mounts. See [source provenance and licenses](../THIRD_PARTY.md), the
+[deployment guide](../docs/DEPLOYMENT.md#image-rebuild-and-source-maintenance)
+and [source pins](../manifests/source.json).
 
 To reconstruct the pinned base on a compatible ARM64 GB10 build host:
 

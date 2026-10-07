@@ -1,5 +1,5 @@
 {
-  "validated_on": "2026-10-04",
+  "validated_on": "2026-10-07",
   "hardware": "Two Linux ARM64 NVIDIA GB10 nodes; native TP2; one container per node",
   "source_commit": "c748079d45e6e070b2acb108a91edfe52f4a7747",
   "vllm_commit": "ddd6fbca148a867aad1fcab7ec72f582b9977db4",
@@ -136,5 +136,48 @@
     "local_OOM_observed": false,
     "both_containers_healthy_after_checks": true,
     "larger_prefill_and_million_context_validation": "Not repeated on this 8 GiB profile; historical 9 GiB results are separate."
+  },
+  "layout_migration_20261007": {
+    "validated_on": "2026-10-07",
+    "tested_layout_commit": "369227db1ae346bc146a5329534e36fe68dba769",
+    "cpu_regression_tests_passed_per_node": 26,
+    "real_restart_from_new_folder": "passed on both nodes",
+    "fabric_all_reduce": "passed; approximately 180 Gb/s",
+    "existing_target_and_draft_snapshots_restored": true,
+    "runtime_image_environment_and_external_mounts_unchanged": true,
+    "mounted_overlay_files_byte_identical": 36,
+    "entrypoint_and_healthcheck_byte_identical": true,
+    "startup_self_test": "passed",
+    "model_alias_checks_passed": 4,
+    "smoke_checks_passed": 8,
+    "image_input": "passed; single image",
+    "tool_call": "passed",
+    "max_num_batched_tokens": 6144,
+    "max_num_seqs": 6,
+    "kv_cache_memory_bytes_per_gpu": 8589934592,
+    "kv_capacity_tokens": 1352535,
+    "max_model_len": 1047552,
+    "display_memory_bytes_per_gpu": 1879048192,
+    "concurrent_256_token_streams": {
+      "completed": 6,
+      "peak_running": 6,
+      "preemptions": 0,
+      "elapsed_seconds_range": [
+        12.19,
+        15.41
+      ],
+      "metrics_errors": 0
+    },
+    "request_without_output_limits": {
+      "request_omits_output_limits": true,
+      "finish_reason": "stop",
+      "completion_tokens": 9
+    },
+    "both_containers_healthy_after_checks": true,
+    "container_restarts_after_startup": 0,
+    "local_OOM_observed": false,
+    "live_source_sync_guard": "refused synchronization before writing",
+    "million_token_workload_tested": false,
+    "maximum_image_count_resolution_tested": false
   }
 }

@@ -74,7 +74,8 @@ The ARM64 runtime image is published on [Docker Hub](https://hub.docker.com/r/te
 ### Choose C4 or C6
 
 Both C4 and C6 were checked at 9 GiB previously. The current 8 GiB / C6
-profile passed the restart and basic checks on 2026-10-04.
+profile passed the restart and basic checks on 2026-10-04 and was revalidated
+from the reorganized deployment folder on 2026-10-07.
 `C4` and `C6` mean the maximum running sequence slots (`MAX_NUM_SEQS`); the
 batch token budget is shared across scheduled requests.
 
@@ -218,7 +219,7 @@ These instructions are for a **fresh two-node deployment**. An existing installa
 
 ### 1. Prepare the hosts
 
-Use two compatible GB10 Linux ARM64 nodes with Docker Engine, Docker Compose v2, NVIDIA Container Toolkit, usable matching GPU drivers and working RoCE. Install Python 3, Bash, SSH, `flock`, `ip`, `nvidia-smi`, `curl` and `jq` on the hosts, and the Hugging Face CLI for downloads. The upstream image build also needs Git and access to its source submodules.
+Use two compatible GB10 Linux ARM64 nodes with Docker Engine, Docker Compose v2, NVIDIA Container Toolkit, usable matching GPU drivers and working RoCE. Install Python 3, Bash, Git, SSH, `flock`, `ip`, `nvidia-smi`, `curl` and `jq` on the hosts, and the Hugging Face CLI for downloads. Install `rsync` on both hosts if you use `sync-repo.sh`. An optional upstream image build also needs access to its source submodules.
 
 Make both nodes headless as described under [headless display memory](#kv-capacity-and-headless-display-memory), and verify [DRM modesetting](#drm-modesetting) on both nodes. Review [host OOM daemons](#host-oom-daemons) before an initial checkpoint load. Configure two RoCE fabric links with static IPv4 addresses, MTU 9000 and valid RoCE v2 GIDs. Configure passwordless SSH from the head to the worker. Leave both GPUs idle before the first start.
 
@@ -246,7 +247,7 @@ cd glm-5.3-flash-gb10-tp2-native
 
 This repository contains the native launcher, portable configuration and vendored runtime overlays. Its upstream source is Kindling AI; the build instructions below use the pinned Kindling checkout to reconstruct the base image.
 
-For an offline installation, copy the deployment source to both nodes, omitting private `.env`, logs and site reports. Each node must contain the same `compose.yaml`, entrypoint, `files/overlays/`, `files/display-kv/` and integrity manifest. Node settings may differ.
+For an offline installation, copy the deployment source to both nodes, omitting private `.env`, logs and site reports. Each node must contain the same `compose.yaml`, `files/entrypoint.sh`, `files/overlays/`, `files/display-kv/` and `manifests/source.json`. Node settings may differ.
 
 ### 3. Pull the patched runtime image
 
@@ -301,6 +302,7 @@ From the native deployment directory on **both nodes**:
 
 ```bash
 cp .env.example .env
+chmod 600 .env
 stat -c '%g' /dev/dri/card0
 nano .env
 ```
@@ -335,23 +337,30 @@ mkdir -p "$CACHE_HOST_DIR" "$LOG_HOST_DIR" "$SNAPSHOT_SEED_DIR"
 
 For a fresh installation, `SNAPSHOT_SEED_DIR` points to an empty directory under the new native cache. Its bind mount still needs an existing directory. The first boot loads checkpoints and creates optimized snapshots in the writable native cache. Optionally point the seed at complete, exact-key snapshots from a matching older runtime; the seed is always read-only.
 
-### 6. Install the same image on the worker and check configuration
+### 6. Compare images and check configuration
 
-From the head, after editing `.env` and configuring passwordless SSH:
+Both nodes should already have the image from step 3. From the head, after
+editing `.env` and configuring passwordless SSH, confirm access and compare
+image IDs:
 
 ```bash
 source .env
 ssh -o BatchMode=yes "$PEER_SSH" true
 
-# Skip the transfer if this exact image is already installed on the worker.
-set -o pipefail
-docker image save "$IMAGE" | ssh "$PEER_SSH" docker image load
-
 docker image inspect "$IMAGE" --format '{{.Id}}'
 ssh "$PEER_SSH" docker image inspect "$IMAGE" --format '{{.Id}}'
 ```
 
-Compare the printed image IDs. These commands assume the same tag on both nodes. An equivalent registry transfer is also possible, but the image contents must match.
+Compare the printed image IDs. These commands assume the same configured image
+reference on both nodes. If the worker cannot pull from the registry, transfer
+the installed tagged image from the head instead, then repeat the comparison:
+
+```bash
+# Use the published tag, rather than an @digest reference, for this transfer.
+set -o pipefail
+docker image save technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 \
+  | ssh "$PEER_SSH" docker image load
+```
 
 Run these commands locally on **each node**, from its checkout:
 
@@ -380,7 +389,7 @@ curl -fsS http://10.10.0.1:8000/health
 ./verify.sh
 ```
 
-`verify` checks aliases, the smoke suite including image input, and concurrent short requests. It submits real requests and does not validate a million-token prompt. Configure clients with `http://YOUR_HEAD_IP:8000/v1` and a listed model alias. For subsequent normal operation, use the commands below; do not rerun configuration generation.
+`verify.sh` checks aliases, the smoke suite including image input, and concurrent short requests. It submits real requests and does not validate a million-token prompt. Configure clients with `http://YOUR_HEAD_IP:8000/v1` and a listed model alias. For subsequent normal operation, use the commands below; do not rerun configuration generation.
 
 ### Optional configuration generator
 
@@ -404,7 +413,7 @@ python3 scripts/configure.py --role worker \
   --drm-gid 44
 ```
 
-The generator refuses an existing `.env` unless `--force` is supplied. If using it, skip `cp .env.example .env`, inspect the generated settings, and proceed with image/configuration checks. Optional `--snapshot-seed` supplies an existing read-only optimized cache. Manual and generated configurations use the same launcher and runtime.
+The generator refuses an existing `.env` unless `--force` is supplied. After generating it, run `chmod 600 .env`. If using it, skip `cp .env.example .env`, inspect the generated settings, and proceed with image/configuration checks. Optional `--snapshot-seed` supplies an existing read-only optimized cache. Manual and generated configurations use the same launcher and runtime.
 
 ## Operating the cluster
 
@@ -412,17 +421,59 @@ The generator refuses an existing `.env` unless `--force` is supplied. If using 
 |---|---|
 | `./check.sh` | Read-only source, mount, image and configuration checks on this node |
 | `./scripts/cluster.sh config` | Render this node's resolved Compose configuration |
-| `./status.sh` | Show containers on the head and configured worker |
-| `./tail-log.sh --tail 80` | Tail this node's container logs |
+| `./start.sh --approved` | Check and start both native ranks from the head |
+| `./status.sh` | Show both ranks, head API health and model aliases |
+| `./tail-log.sh head --tail 80` | Show recent head logs; use `--follow` to stream |
+| `./tail-log.sh worker --tail 80` | Show recent worker logs through configured SSH |
+| `./sync-repo.sh --dry-run` | Preview tracked-source synchronization while both folders are offline |
+| `./sync-repo.sh --approved` | Synchronize tracked source; preserve worker `.env` and Git metadata |
 | `./verify.sh` | Submit alias checks, eight smoke cases including image input, then concurrent requests |
 | `./restart.sh --approved` | Stop both containers, preflight and start the native pair |
 | `./stop.sh --approved` | Stop and remove both native containers |
+
+Run coordinated start/stop/restart/verify/sync commands from the **head checkout**;
+run `check.sh` on each node. With no arguments, `tail-log.sh` follows local logs.
 
 The `--approved` flag is an explicit operator guard on mutations. It does not add a daemon or an approval service. No cron watchdog or automatic restart policy is installed by this recipe. If a rank fails, inspect both nodes and restart the pair after resolving the cause.
 
 `check.sh` is safe while serving. `node-preflight` expects stopped containers and idle GPUs, so occupied serving ports and an active model make it fail by design. `verify.sh` creates inference load; run it when that load is appropriate. It does not submit a million-token prompt.
 
 An optional [scripts/legacy.sh](../scripts/legacy.sh) adapter supports `cutover --approved` and `rollback --approved` when the site's `LEGACY_*` settings point to the previous Kindling/Mentat stack. Native start/stop/restart do not require that adapter. The much older NVFP4 deployment and its watchdog remain disabled on this cluster.
+
+### Updating an existing deployment
+
+Keep a complete private backup outside the checkout and review local tracked
+changes before updating. Never change runtime bind-mounted source while the pair
+is serving. Schedule the interruption, then stop from the head:
+
+```bash
+./stop.sh --approved
+```
+
+On **both nodes**, from their existing deployment checkout:
+
+```bash
+git status --short
+git fetch origin
+git switch main
+git merge --ff-only origin/main
+./check.sh
+```
+
+Resolve local tracked changes before switching branches; do not discard them.
+Keep each node's ignored `.env` and external model/cache/log directories. Use the
+same published commit on both nodes. From the head, start and verify again:
+
+```bash
+./start.sh --approved
+./status.sh
+# Wait for the startup self-test and API readiness, then:
+./verify.sh
+```
+
+For the first transition from the previous folder layout, follow
+[layout migration and rollback](LAYOUT_MIGRATION.md) instead. The old native
+folder and the optional Mentat adapter are different rollback targets.
 
 ## API examples
 
@@ -473,7 +524,7 @@ Use the MIME type that matches the file. `LIMIT_MM='{"image":32,"video":0}'` is 
 
 The historical 9 GiB deployment was validated on **2026-10-03**; the current 8 GiB restart and checks are recorded separately in the summary. The published, host-independent summary is [manifests/validation-summary.json](../manifests/validation-summary.json). Raw runtime reports and verification logs remain private to the test installation.
 
-### Current 8 GiB / C6 checks — 2026-10-04
+### Current 8 GiB / C6 layout validation — 2026-10-07
 
 | Check | Recorded result |
 |---|---|
@@ -481,14 +532,19 @@ The historical 9 GiB deployment was validated on **2026-10-03**; the current 8 G
 | Snapshot restore and built-in startup self-test | Passed |
 | Model aliases | All four site aliases passed |
 | Smoke suite | **8/8 passed**, including image reading and tool calls |
-| Concurrency | **Six simultaneous 256-token streams**; peak running 6; zero preemptions; 11.43–14.97 seconds |
+| Concurrency | **Six simultaneous 256-token streams**; peak running 6; zero preemptions; 12.19–15.41 seconds |
 | Request without output-token limits | Passed; natural `stop` completion |
 | KV capacity | **1,352,535 equivalent tokens**; boot estimate **1.29×** maximum context |
-| Available RAM during basic checks | Head minimum **1.71 GiB**; worker minimum **4.17 GiB** |
-| Swap activity during basic checks | **Zero swap-out pages** on both nodes |
+| Available RAM after basic checks | Approximately **2.8 GiB** on the head and **4.4 GiB** on the worker |
+| Layout and runtime comparison | New source mounts; unchanged image, settings, model/cache/log mounts and runtime code |
+| Source sync against live folder | Refused before writing |
 | Container health after checks | Both healthy; no local OOM observed |
 | Larger prefills / million-token workload | **Not repeated or qualified at 8 GiB** |
 | 32-image / maximum-resolution workloads | **Not tested** |
+
+The earlier 8 GiB checks from 2026-10-04 remain recorded separately in the
+validation summary. The layout migration reused existing target and draft
+snapshots and passed 26 CPU regression tests on each node.
 
 ### Historical 9 GiB checks — 2026-10-03
 
@@ -535,7 +591,7 @@ Registry publication is separate from cluster setup; pulling or pushing an image
 
 `files/display-kv/` includes the exact compiled ARM64 helper and its C source. A fresh rebuild may produce a different image ID; verify its contents and workload behavior before assigning it to a serving profile. Transfer the finished image to the worker with `docker save`/`docker load` or your registry, and compare image identities. These are reconstruction instructions; no new rebuild was performed for this documentation update.
 
-`scripts/install-assets.py --source-root /path/to/pinned-kindling --display-patch-dir /path/to/matching-display-patch` refreshes vendored source files and applies the native snapshot selector. It can overwrite local source edits. `manifests/source.json` records SHA-256 hashes; stage reviewed source changes, run `python3 scripts/update-manifest.py`, then run `check.sh` on both nodes. Preserve matching source and image versions, and revalidate inference when behavior changes. The host-check regression suite runs without Docker, GPU access or model downloads:
+`python3 scripts/install-assets.py --source-root /path/to/pinned-kindling --display-patch-dir /path/to/matching-display-patch` refreshes vendored source files and applies the native snapshot selector. It can overwrite local source edits. `manifests/source.json` records SHA-256 hashes; stage reviewed source changes, run `python3 scripts/update-manifest.py`, then run `check.sh` on both nodes. Preserve matching source and image versions, and revalidate inference when behavior changes. The host-check regression suite runs without Docker, GPU access or model downloads:
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -649,7 +705,7 @@ Stop unrelated memory/GPU consumers before first boot and inspect RAM and swap s
 | Slow first boot | Processed snapshots may be absent; the initial checkpoint load creates them |
 | Hash mismatch | Inspect the named source change, synchronize intended files and update its manifest hash |
 | Image rejected by the API | Check `LIMIT_MM`, content-part format, MIME type and the selected model alias |
-| Folder renamed while containers remain live | Existing bind mounts can still name the former path; a temporary compatibility symlink can preserve it until container recreation |
+| Moving or renaming a deployment folder | Preserve the current folder, prepare a separate checkout and follow [layout migration](LAYOUT_MIGRATION.md); stop the pair before switching source paths |
 
 The earlier transient restart failure came from probing ports with a plain TCP bind after shutdown. Closed connections could remain in `TIME_WAIT`, which was reported as an occupied port even though no process was listening. `scripts/preflight.py` now sets `SO_REUSEADDR` before binding. Actual listener and recently closed socket cases were checked; active listeners remain rejected. This launcher fix requires no image rebuild.
 
