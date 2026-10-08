@@ -112,17 +112,20 @@ SERVED="${SERVED_NAME:-glm53}"
 # symmetric (one carries its link on enp1s0f1np1, the rest on enp1s0f0np0), so
 # any hardcoded interface name is wrong somewhere whichever you pick.
 #
-# VLLM_HOST_IP is this node's LAN address: mentat identifies a node by it, and
-# the agent and daemon must agree on one string. Address prefixes
-# (CLUSTER_SUBNET, FABRIC_SUBNETS) name the fabric. Whatever .env leaves out
-# comes from the local mentatd: its lan-tagged address, and one prefix per
-# rdma-tagged address.
+# VLLM_HOST_IP is this node's bootstrap address. FABRIC_SUBNETS selects one
+# local IPv4 address per RoCE port using CIDR networks, dotted prefixes or
+# exact addresses. Native ranks get their settings directly from .env.
 #
 # An uncabled port powers down completely -- no PCI device, no
 # /sys/class/infiniband entry. That is not a missing driver and no amount of
 # modprobe fixes it, so a node reports only the ports it actually has.
 : "${FABRIC_SUBNETS:?set FABRIC_SUBNETS}"
 CLUSTER_SUBNET="${CLUSTER_SUBNET:-${FABRIC_SUBNETS%% *}}"
+FABRIC_SELECTOR_SCRIPT=/deployment/scripts/fabric_selectors.py
+[[ -f "$FABRIC_SELECTOR_SCRIPT" ]] || { echo "FATAL: missing $FABRIC_SELECTOR_SCRIPT" >&2; exit 1; }
+# Validate even when NCCL device/GID settings are pinned; do not glob selectors.
+read -r -a FABRIC_SELECTORS <<< "$FABRIC_SUBNETS"
+python3 "$FABRIC_SELECTOR_SCRIPT" --validate "${FABRIC_SELECTORS[@]}" || exit 1
 export VLLM_HOST_IP
 
 # Gloo needs an EXACT interface name -- NCCL_SOCKET_IFNAME takes a prefix, this
@@ -147,7 +150,7 @@ fi
 export GLOO_SOCKET_IFNAME
 
 # --- fabric ports: which RoCE devices carry the cluster, at which GID -------
-# FABRIC_SUBNETS names one address prefix per cabled port. A second entry puts
+# FABRIC_SUBNETS supplies one IPv4 selector per cabled port. A second entry puts
 # NCCL on both PCIe roots of the ConnectX-7, which ib_write_bw measured at 196
 # Gb/s against 112 for one root alone. It is opt-in because the second root's
 # registrations are GPU-resident and land AFTER vLLM profiles, so they eat the
@@ -156,21 +159,14 @@ export GLOO_SOCKET_IFNAME
 # bought nothing -- the per-token allreduce is ~720 KB, a fraction of a
 # millisecond against a 45 ms token -- so weigh it only at TP>2.
 #
-# Keyed on the subnet rather than on VLLM_HOST_IP because the two are no longer
-# the same address. mentat identifies a node by its LAN address and the agent
-# and daemon must agree on one string, so VLLM_HOST_IP is the LAN one, and no
-# RoCE GID will ever match it.
+# Fabric addresses are independent of VLLM_HOST_IP, which is used for bootstrap.
 FABRIC_SUBNETS="${FABRIC_SUBNETS:-$CLUSTER_SUBNET}"
 
-# Echoes "<rdma-device> <gid-index>" for the port holding an address in $1.
+# Echoes "<rdma-device> <gid-index>" for the selected interface/address pair.
 # Returns 1 when this node has not cabled that port, or its GID has yet to
 # appear.
 fabric_port() {
-  local prefix="$1" found addr ifname dev="" hex i t g d n
-  found=$(ip -o -4 addr show 2>/dev/null \
-      | awk -v p="$prefix" '$4 ~ "^"p {split($4,a,"/"); print $2, a[1]; exit}')
-  [[ -n "$found" ]] || return 1
-  ifname="${found%% *}"; addr="${found##* }"
+  local ifname="$1" addr="$2" dev="" hex i t g d n
   for d in /sys/class/infiniband/*; do
     for n in "$d"/ports/1/gid_attrs/ndevs/*; do
       [[ -f "$n" ]] || continue
@@ -203,16 +199,25 @@ if [[ -z "${NCCL_IB_HCA:-}" || -z "${NCCL_IB_GID_INDEX:-}" ]]; then
   _waited=0
   while :; do
     _hcas=""; _gid=""; _mismatch=""
-    for _p in $FABRIC_SUBNETS; do
-      _r=$(fabric_port "$_p") || continue
-      _d="${_r%% *}"; _i="${_r##* }"
-      [[ -n "$_gid" && "$_i" != "$_gid" ]] && _mismatch="$_d at $_i, expected $_gid"
-      _gid="${_gid:-$_i}"
-      _hcas="${_hcas:+$_hcas,}$_d"
-    done
-    [[ -n "$_hcas" ]] && break
+    _ports_ready=1
+    if _links=$(python3 "$FABRIC_SELECTOR_SCRIPT" "${FABRIC_SELECTORS[@]}"); then
+      while IFS=$'\t' read -r _if _addr; do
+        if ! _r=$(fabric_port "$_if" "$_addr"); then
+          _ports_ready=0; break
+        fi
+        _d="${_r%% *}"; _i="${_r##* }"
+        [[ -n "$_gid" && "$_i" != "$_gid" ]] && _mismatch="$_d at $_i, expected $_gid"
+        _gid="${_gid:-$_i}"
+        _hcas="${_hcas:+$_hcas,}$_d"
+      done <<< "$_links"
+      [[ "$_ports_ready" == 1 && -n "$_hcas" ]] && break
+    else
+      _selector_rc=$?
+      # Missing addresses may settle; invalid or ambiguous selections cannot.
+      if (( _selector_rc == 2 )); then exit 1; fi
+    fi
     if (( _waited >= ${ROCE_SETTLE_S:-60} )); then
-      echo "FATAL: no RoCE v2 GID for any of: $FABRIC_SUBNETS" >&2
+      echo "FATAL: not all fabric selectors have a local address and RoCE v2 GID: $FABRIC_SUBNETS" >&2
       ip -br addr show >&2
       ls /sys/class/infiniband/ >&2 || echo "(no /sys/class/infiniband at all)" >&2
       exit 1
@@ -777,14 +782,13 @@ MM=(--limit-mm-per-prompt "$LIMIT_MM")
 # while images were capped at 4.
 [[ "${SKIP_MM_PROFILING:-0}" == "1" ]] && MM+=(--skip-mm-profiling)
 
-# The image's template is nvidia's, with one change: thinking off asks for low
-# reasoning effort. GLM-5.3-Flash has no non-thinking mode, and the empty
-# <think></think> that thinking off otherwise produces makes long output repeat
-# and skip (README, Troubleshooting). The checkpoint's own template is ignored,
-# so a fresh download cannot bring the problem back. CHAT_TEMPLATE overrides.
+# Load the exact MiaAI template from the deployment checkout. Reasoning defaults
+# to max; thinking=false/enable_thinking=false closes the thinking prefix.
+# CHAT_TEMPLATE can select another container-visible file.
 TMPL=()
-: "${CHAT_TEMPLATE:=/usr/local/share/glm53-chat-template.jinja}"
+: "${CHAT_TEMPLATE:=/deployment/files/chat_template.jinja}"
 if [[ -n "$CHAT_TEMPLATE" ]]; then
+  [[ -f "$CHAT_TEMPLATE" ]] || { echo "FATAL: chat template missing: $CHAT_TEMPLATE" >&2; exit 1; }
   TMPL=(--chat-template "$CHAT_TEMPLATE")
   echo "chat template: $CHAT_TEMPLATE"
 fi

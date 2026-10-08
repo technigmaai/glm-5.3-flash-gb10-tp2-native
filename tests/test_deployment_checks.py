@@ -120,6 +120,7 @@ class ModelChecks(unittest.TestCase):
         env = dict(ROLE='head', NODE_RANK='0', TP='2', MAX_MODEL_LEN='1047552',
                    MAX_NUM_SEQS='4', KV_CACHE_MEMORY='8589934592', LIMIT_MM='{}',
                    MODEL_DIR=MOUNT, DFLASH_MODEL=DRAFT, GLM53_DISPLAY_KV_ENABLE='0')
+        env['FABRIC_SUBNETS'] = '10.20.0. 10.21.0.'
         rendered = {'services': {'glm53': {'image': 'fixture', 'environment': env,
                     'volumes': [{'source': str(self.host), 'target': MOUNT, 'read_only': True},
                                 {'source': str(draft), 'target': DRAFT, 'read_only': True}]}}}

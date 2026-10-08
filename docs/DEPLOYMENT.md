@@ -53,7 +53,7 @@ The active profile provides **six request slots**, a **1,047,552-token context l
 | Multimodal admission | Up to **32 images per request**; video disabled |
 | Multimodal processor cache | **1 GiB** |
 | Tool / reasoning parsers | `glm47` / `glm45` |
-| Chat template | `/usr/local/share/glm53-chat-template.jinja` in the image |
+| Chat template | `files/chat_template.jinja` in this repo, loaded as `/deployment/files/chat_template.jinja` |
 | API | Head node, `0.0.0.0:8000`; base path `/v1` |
 | Recovery policy | Manual cluster operations; Compose `restart: "no"` |
 
@@ -315,7 +315,7 @@ Copy only for a fresh installation: do not overwrite an existing working `.env`.
 | `NODE_RANK` | `0` | `1` |
 | `HEAD_HOST` | Head LAN IP, e.g. `10.10.0.1` | Same head LAN IP |
 | `VLLM_HOST_IP` | Head LAN IP | Worker LAN IP, e.g. `10.10.0.2` |
-| `FABRIC_SUBNETS` | `'10.20.0. 10.21.0.'` | Same fabric prefixes |
+| `FABRIC_SUBNETS` | `'10.20.0. 10.21.0.'` or CIDR networks | Same networks/prefixes; exact IP selectors use this node's addresses |
 | `DEPLOY_ROOT` | Absolute checkout path on head | Absolute checkout path on worker |
 | `PEER_SSH` | Worker SSH destination, e.g. `your-user@10.20.0.2` | May be empty: `PEER_SSH=` |
 | `PEER_DEPLOY_DIR` | Absolute checkout path on worker | May be empty: `PEER_DEPLOY_DIR=` |
@@ -323,7 +323,33 @@ Copy only for a fresh installation: do not overwrite an existing working `.env`.
 
 Also replace **every `/home/your-user` path** in the template: target cache, drafter cache, native cache, logs and snapshot seed. Set `IMAGE` to the installed patched tag on each host. `MODEL_DIR` and `DFLASH_MODEL` are paths **inside the container** and already point at the pinned revisions; leave them unchanged for the default cache layout. For a flat download, use the mount itself as described under [model paths](#model-paths-and-tokenizer-errors).
 
-Use literal absolute paths in `.env`, not `~`, `$HOME` or references to other variables: the launcher, Compose and Python settings reader all consume it. Quote values containing spaces or JSON as shown in the example. `FABRIC_SUBNETS` takes IPv4 prefixes ending in a dot, not CIDR strings such as `10.20.0.0/24`.
+Use literal absolute paths in `.env`, not `~`, `$HOME` or references to other variables: the launcher, Compose and Python settings reader all consume it. Quote values containing spaces or JSON as shown in the example.
+
+`FABRIC_SUBNETS` takes one IPv4 selector per physical RoCE port. CIDR networks,
+existing dotted prefixes and exact local IPv4 addresses are supported. For
+example, these two adjacent `/30` networks can share the same third octet:
+
+```dotenv
+FABRIC_SUBNETS='192.168.2.0/30 192.168.2.4/30'
+```
+
+Use this same value on both nodes: first-link host addresses `.1` and `.2`
+belong to the first network; second-link addresses `.5` and `.6` belong to the
+second. Existing `FABRIC_SUBNETS='192.168.200. 192.168.201.'` also works unchanged.
+An exact-IP selector such as `192.168.2.1` matches only that IP; use each node's
+own addresses when choosing this format. CIDRs must use network addresses, e.g.
+`192.168.2.0/30`, rather than `192.168.2.1/30`.
+
+Startup and preflight share the same selector code. Invalid or overlapping
+selectors, multiple matching addresses, and selecting one interface twice are
+rejected instead of silently picking the first match. Every configured port
+must acquire its address and RoCE v2 GID before startup proceeds. This changes
+discovery only; it does not assign IPs, alter routes or require `/24` host masks.
+For a read-only discovery check while a model is running:
+
+```bash
+python3 scripts/fabric_selectors.py 192.168.2.0/30 192.168.2.4/30
+```
 
 Keep the shared serving settings identical on both nodes: TP2, the selected [C4 or C6 profile](#choose-c4-or-c6), 1,047,552 maximum context, KV pool, ports, image limits and model aliases. The fresh template starts with C4 and 8 GiB KV. Your host usernames, local paths and DRM group IDs may differ. You do not need a previous deployment or optimized snapshot cache.
 
@@ -489,7 +515,7 @@ curl -fsS "http://${HEAD_IP}:8000/v1/chat/completions" \
   --data '{"model":"glm53","messages":[{"role":"user","content":"Explain tensor parallelism in two sentences."}],"temperature":0.6}' | jq
 ```
 
-Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The image's template derives from NVIDIA's template and maps `enable_thinking=false` to low reasoning effort rather than promising a completely non-reasoning mode. Temperature and other sampling parameters belong in client requests.
+Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The exact [MiaAI template](../files/chat_template.jinja) is tracked in this repository; [provenance](../files/chat_template.ORIGIN.md) records its source and checksum. Compose passes `CHAT_TEMPLATE=/deployment/files/chat_template.jinja` using the existing read-only deployment mount. No image rebuild or model-cache edit is needed. To override it, set a container-visible `CHAT_TEMPLATE` path on both nodes and restart the pair. Reasoning defaults to `max`; explicit `low` and `high` are supported. `chat_template_kwargs.enable_thinking=false` (or `thinking=false`) now supplies an empty `<think></think>` prefix rather than selecting low effort. Keep reasoning enabled for reasoning workloads. The matching `files/overlays/fixes/glm47_moe.py` overlay makes the parser honour the same thinking flags; the earlier image parser forced reasoning on and misclassified disabled-thinking answers as reasoning. This change does not establish long-context quality. Parsed reasoning is returned in `message.reasoning` or streaming `delta.reasoning`, separately from `content`. Temperature and other sampling parameters belong in client requests.
 
 ### Reply length
 

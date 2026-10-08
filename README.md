@@ -82,11 +82,19 @@ Edit `.env` for each node's role/rank, addresses, fabric prefixes, SSH target an
 absolute paths. Download the pinned target and draft models into each user's
 default Hugging Face cache as described in the guide. `scripts/configure.py` is optional.
 
+`FABRIC_SUBNETS` accepts IPv4 CIDRs (including adjacent `/30` networks), existing
+dotted prefixes, or exact local IPs. Each selector identifies one distinct RoCE port.
+
 The image supplies the runtime; **this repository supplies the native entrypoint
 and overlays through Compose bind mounts**. Use the complete recipe when starting
 it. Replies have no fixed deployment output-token cap: omit `max_tokens` and
 `max_completion_tokens` in client requests to use the remaining context budget.
 Clients may still impose their own limits, and the model may stop earlier.
+
+The exact MiaAI template is tracked in [files/chat_template.jinja](files/chat_template.jinja)
+and selected by `CHAT_TEMPLATE`. Reasoning defaults to **max**; disabling thinking
+supplies an empty thinking block. See [template provenance](files/chat_template.ORIGIN.md)
+and the client settings in the deployment guide.
 
 After both nodes are configured and their models are ready, run from the head:
 
