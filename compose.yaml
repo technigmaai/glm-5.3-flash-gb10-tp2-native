@@ -15,6 +15,7 @@ services:
     environment:
       ALLOW_STOCK: ""
       API_PORT: "${API_PORT:-8000}"
+      CHAT_TEMPLATE: "${CHAT_TEMPLATE:-/deployment/files/chat_template.jinja}"
       CONTAINER_NAME: "${CONTAINER_NAME:-glm53-native}"
       CUDAGRAPH_CAPTURE_SIZES: ""
       CUDAGRAPH_METRICS: ""
@@ -417,6 +418,13 @@ services:
         type: "bind"
         source: "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}"
         target: "/deployment"
+        read_only: true
+        bind:
+          create_host_path: false
+      -
+        type: "bind"
+        source: "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/files/overlays/fixes/glm47_moe.py"
+        target: "/usr/local/lib/python3.12/dist-packages/vllm/parser/glm47_moe.py"
         read_only: true
         bind:
           create_host_path: false

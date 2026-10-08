@@ -7,12 +7,11 @@ import socket
 import subprocess
 import sys
 from settings import load_settings
+from fabric_selectors import select_fabric_addresses
 
 
 def fabric_addresses(addresses, prefixes):
-    return {(link['ifname'], item['local']) for link in addresses
-            for item in link.get('addr_info', [])
-            if item['family'] == 'inet' and any(item['local'].startswith(p) for p in prefixes)}
+    return set(select_fabric_addresses(addresses, prefixes))
 
 
 def main():
@@ -76,4 +75,7 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except (ValueError, OSError, subprocess.CalledProcessError) as error:
+        sys.exit(f'Preflight failed: {error}')

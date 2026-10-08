@@ -20,6 +20,12 @@ compiled ARM64 helper and adaptation notes are retained under `files/display-kv/
 See [files/display-kv/ORIGIN.md](files/display-kv/ORIGIN.md) and
 [files/display-kv/LICENSE.AGPL-3.0](files/display-kv/LICENSE.AGPL-3.0).
 
+The unmodified MiaAI chat template is retained under `files/chat_template.jinja`.
+See [its source attribution and checksum](files/chat_template.ORIGIN.md).
+The vLLM `glm47_moe.py` overlay is copied from the pinned runtime with only
+its thinking-flag selection changed to match that template. Its SPDX
+Apache-2.0 notice is preserved.
+
 Model weights and base container layers are not included. Their license terms
 remain independent of this deployment source; see the model and image sources
 linked in the README. The DFlash2 model card describes noncommercial terms and

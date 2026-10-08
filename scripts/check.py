@@ -7,6 +7,7 @@ import subprocess
 import sys
 from deployment_checks import display_kv_checks, validate_model_mount
 from settings import load_settings
+from fabric_selectors import parse_selectors
 
 
 def main():
@@ -30,6 +31,7 @@ def main():
     assert int(env['MAX_NUM_SEQS']) > 0 and int(env['KV_CACHE_MEMORY']) > 0
     assert all(int(n) >= 0 for n in json.loads(env['LIMIT_MM']).values())
     assert not any(k.startswith(('MENTAT_', 'RAY_')) for k in env)
+    parse_selectors(env['FABRIC_SUBNETS'].split())
     subprocess.run(['docker', 'image', 'inspect', s['image']], check=True, stdout=subprocess.DEVNULL)
     for volume in s['volumes']:
         assert Path(volume['source']).exists(), volume['source']

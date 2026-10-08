@@ -3,12 +3,13 @@
 import argparse
 from pathlib import Path
 import shlex
+from fabric_selectors import parse_selectors
 
 p = argparse.ArgumentParser()
 p.add_argument('--role', choices=('head', 'worker'), required=True)
 p.add_argument('--head-host', required=True)
 p.add_argument('--node-ip', required=True)
-p.add_argument('--fabric-subnets', required=True, help='Space-separated IPv4 fabric prefixes')
+p.add_argument('--fabric-subnets', required=True, help='Space-separated IPv4 CIDRs, dotted prefixes or exact addresses')
 p.add_argument('--image', required=True, help='Installed patched ARM64/GB10 image tag')
 p.add_argument('--peer-ssh', default='', help='SSH destination from the head to the worker')
 p.add_argument('--peer-dir', default='', help='Deployment directory on the worker')
@@ -16,6 +17,10 @@ p.add_argument('--snapshot-seed', default='', help='Optional existing read-only 
 p.add_argument('--drm-gid', default='44')
 p.add_argument('--force', action='store_true', help='Explicitly replace an existing .env')
 a = p.parse_args()
+try:
+    parse_selectors(a.fabric_subnets.split())
+except ValueError as error:
+    p.error(str(error))
 root = Path(__file__).resolve().parents[1]
 out = root / '.env'
 if out.exists() and not a.force:
