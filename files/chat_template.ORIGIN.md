@@ -1,10 +1,18 @@
 # Chat template provenance
 
-`chat_template.jinja` is an unmodified copy of
+`chat_template.jinja` is derived from an exact copy of
 [MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks](https://github.com/MiaAI-Lab/GLM-5.3-Flash-EXL3-2x-DGX-Sparks/blob/main/files/chat_template.jinja),
 retrieved on 2026-10-08 at the operator's request.
 
-SHA-256: `7a5a0dda1331a7c40d930961cc1cb3b57c3b52625250c13372fe006ba2e9dfdb`.
+Original MiaAI SHA-256: `7a5a0dda1331a7c40d930961cc1cb3b57c3b52625250c13372fe006ba2e9dfdb`.
+
+On 2026-10-09, a conditional tool-continuation reminder was added immediately
+before the generation prefix. It applies only with thinking enabled, a final
+structured tool message, and `tool_reasoning_reminder` not disabled. All other
+rendering retains the original template. See
+[behavior, opt-out and validation limits](../docs/DEPLOYMENT.md#tool-continuation-reasoning).
+
+Current SHA-256: `9cdc8d7b922d498d8d797436edfedcea1a7fbce8ed2e83c421bb8d2e7fe01781`.
 Upstream attribution and applicable terms remain with the source project.
 
 The file is loaded from `/deployment/files/chat_template.jinja` through the

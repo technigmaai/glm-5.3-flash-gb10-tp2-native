@@ -782,7 +782,7 @@ MM=(--limit-mm-per-prompt "$LIMIT_MM")
 # while images were capped at 4.
 [[ "${SKIP_MM_PROFILING:-0}" == "1" ]] && MM+=(--skip-mm-profiling)
 
-# Load the exact MiaAI template from the deployment checkout. Reasoning defaults
+# Load the MiaAI-derived template from the deployment checkout. Reasoning defaults
 # to max; thinking=false/enable_thinking=false closes the thinking prefix.
 # CHAT_TEMPLATE can select another container-visible file.
 TMPL=()

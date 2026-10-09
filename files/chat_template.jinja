@@ -261,6 +261,9 @@ For each function call, output the function name and arguments within the follow
 <|system|>{{ visible_text(m.content) }}
 {%- endif -%}
 {%- endfor -%}
+{%- if add_generation_prompt and thinking_enabled and messages and messages[-1].role == 'tool' and (tool_reasoning_reminder is not defined or tool_reasoning_reminder) -%}
+{{- '<|user|>' + 'Continue the original task using the latest tool result. Before your next answer or tool call, briefly assess the result in the thinking block. Keep that assessment separate from the user-facing answer.' -}}
+{%- endif -%}
 {%- if add_generation_prompt -%}
     <|assistant|>{{- '<think>' if thinking_enabled else '<think></think>' -}}
 {%- endif -%}

@@ -91,10 +91,12 @@ it. Replies have no fixed deployment output-token cap: omit `max_tokens` and
 `max_completion_tokens` in client requests to use the remaining context budget.
 Clients may still impose their own limits, and the model may stop earlier.
 
-The exact MiaAI template is tracked in [files/chat_template.jinja](files/chat_template.jinja)
-and selected by `CHAT_TEMPLATE`. Reasoning defaults to **max**; disabling thinking
-supplies an empty thinking block. See [template provenance](files/chat_template.ORIGIN.md)
-and the client settings in the deployment guide.
+The MiaAI-derived template is tracked in [files/chat_template.jinja](files/chat_template.jinja)
+and selected by `CHAT_TEMPLATE`. Reasoning defaults to **max**. With thinking enabled,
+a short reminder after tool results requests separate reasoning before continuing.
+Disable this reminder with `chat_template_kwargs.tool_reasoning_reminder=false`;
+disabling thinking supplies an empty thinking block. See [template provenance](files/chat_template.ORIGIN.md)
+and [client settings](docs/DEPLOYMENT.md#tool-continuation-reasoning).
 
 After both nodes are configured and their models are ready, run from the head:
 
@@ -134,7 +136,7 @@ logs keep their configured external locations.
 
 ## Validation and limits
 
-The current **8 GiB / C6** restart passed all four model aliases, **8/8 smoke
+The current **8 GiB / C6** restart passed all four model aliases, **9/9 smoke
 checks** including image and tool calls, and **six simultaneous short streams**
 with zero preemptions. Boot reported **1,352,535 shared KV tokens (1.29× maximum
 context)**. A request with no output-token limit ended normally.
@@ -143,7 +145,9 @@ prefill test; no OOM was observed locally in those checks.
 The reorganized layout was restarted and revalidated on **2026-10-07** with
 the same results and unchanged runtime settings.
 
-**An actual million-token workload is not qualified for this native profile.**
+Fresh tool-continuation checks passed up to **1,023,032 input tokens** with separate
+reasoning and independently verified correct plans. See [test details and limits](docs/TOOL_REASONING_VALIDATION.md).
+**Arbitrary million-token task accuracy remains unqualified.**
 The KV capacity is shared; six slots do not provide six simultaneous million-token
 contexts. Maximum image-count/resolution workloads are also untested. The head
 has limited free RAM; the earlier 9 GiB C6 uncached load used substantial swap.

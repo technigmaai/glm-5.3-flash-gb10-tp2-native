@@ -4,7 +4,7 @@ Run GLM-5.3-Flash across two NVIDIA GB10 systems with **one model container per 
 
 This deployment is derived from **[Kindling AI's GLM-5.3-Flash recipe](https://github.com/kindlingai/glm-5.3-flash-gx10/tree/c748079d45e6e070b2acb108a91edfe52f4a7747)**. It retains that recipe's GB10 kernels, DFlash2 speculation, RecoverSSM, adaptive scheduling and optimized weight snapshots, then replaces its Mentat orchestration with fixed native ranks. A local display-memory allocation layer backs part of the KV cache with memory reserved by the GB10 firmware for a display.
 
-The active profile provides **six request slots**, a **1,047,552-token context limit**, **8 GiB logical KV per GPU**, and **image input**. Single-image input and six concurrent short requests have passed validation. An actual million-token request remains unqualified; see [validation and limits](#validation-and-limits).
+The active profile provides **six request slots**, a **1,047,552-token context limit**, **8 GiB logical KV per GPU**, and **image input**. Single-image input and six concurrent short requests have passed validation. Synthetic tool-continuation checks passed above one million input tokens; arbitrary million-token task accuracy remains unqualified. See [validation and limits](#validation-and-limits).
 
 ## Contents
 
@@ -85,8 +85,9 @@ batch token budget is shared across scheduled requests.
 | **6,144 / C6** | `6144` | `6` | 8 GiB | Current deployment profile |
 
 Both options retain TP2, port **8000**, the **1,047,552-token context limit**,
-image input, the display-memory patch and the same model aliases. Neither
-option has completed a million-token workload test. Six slots do not guarantee
+image input, the display-memory patch and the same model aliases. Synthetic
+tool-continuation checks passed above one million input tokens on C6; general
+million-token workloads remain unqualified. Six slots do not guarantee
 that six large prefills run at once: requests can queue under the token budget.
 
 Choose **one** option and edit these values in each node's existing `.env`.
@@ -515,7 +516,50 @@ curl -fsS "http://${HEAD_IP}:8000/v1/chat/completions" \
   --data '{"model":"glm53","messages":[{"role":"user","content":"Explain tensor parallelism in two sentences."}],"temperature":0.6}' | jq
 ```
 
-Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The exact [MiaAI template](../files/chat_template.jinja) is tracked in this repository; [provenance](../files/chat_template.ORIGIN.md) records its source and checksum. Compose passes `CHAT_TEMPLATE=/deployment/files/chat_template.jinja` using the existing read-only deployment mount. No image rebuild or model-cache edit is needed. To override it, set a container-visible `CHAT_TEMPLATE` path on both nodes and restart the pair. Reasoning defaults to `max`; explicit `low` and `high` are supported. `chat_template_kwargs.enable_thinking=false` (or `thinking=false`) now supplies an empty `<think></think>` prefix rather than selecting low effort. Keep reasoning enabled for reasoning workloads. The matching `files/overlays/fixes/glm47_moe.py` overlay makes the parser honour the same thinking flags; the earlier image parser forced reasoning on and misclassified disabled-thinking answers as reasoning. This change does not establish long-context quality. Parsed reasoning is returned in `message.reasoning` or streaming `delta.reasoning`, separately from `content`. Temperature and other sampling parameters belong in client requests.
+Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The [MiaAI-derived template](../files/chat_template.jinja) is tracked in this repository; [provenance](../files/chat_template.ORIGIN.md) records its source and checksum. Compose passes `CHAT_TEMPLATE=/deployment/files/chat_template.jinja` using the existing read-only deployment mount. No image rebuild or model-cache edit is needed. To override it, set a container-visible `CHAT_TEMPLATE` path on both nodes and restart the pair. Reasoning defaults to `max`; explicit `low` and `high` are supported. `chat_template_kwargs.enable_thinking=false` (or `thinking=false`) now supplies an empty `<think></think>` prefix rather than selecting low effort. Keep reasoning enabled for reasoning workloads. The matching `files/overlays/fixes/glm47_moe.py` overlay makes the parser honour the same thinking flags; the earlier image parser forced reasoning on and misclassified disabled-thinking answers as reasoning. This change does not establish long-context quality. Parsed reasoning is returned in `message.reasoning` or streaming `delta.reasoning`, separately from `content`. Temperature and other sampling parameters belong in client requests.
+
+### Tool continuation reasoning
+
+With thinking enabled and the last message a tool result, the template adds a
+short synthetic user continuation immediately before the assistant prefix:
+
+> Continue the original task using the latest tool result. Before your next answer or tool call, briefly assess the result in the thinking block. Keep that assessment separate from the user-facing answer.
+
+This requests a separate reasoning trace from the model. It does not relabel
+ordinary answer text or manufacture reasoning in the parser. The reminder is
+added only when rendering the next generation; it is not inserted into stored
+history. Existing reasoning history, tool-result ordering, image placeholders
+and effort settings are retained. Thinking-off requests, user-ended requests
+and history-only renders receive no reminder.
+
+To restore the original MiaAI rendering for a request, send:
+
+```json
+{"chat_template_kwargs":{"enable_thinking":true,"tool_reasoning_reminder":false}}
+```
+
+Direct replay on 2026-10-09 of a real tool continuation returned zero separate
+reasoning tokens at 38k, 500k and 900k prompt tokens with the original template.
+The model itself immediately generated `</think>` in raw completions. The
+reminder restored separate reasoning and the correct selected plan at all three
+sizes; three successive continuations around 900k also passed. Long prompts
+used synthetic background padding around actual session history. These checks
+qualify this mitigation for the reproducer, not all production conversations
+or million-token task accuracy. After restart, requests with the original
+messages and no client-added reminder returned 246 reasoning tokens at 38k and
+205 at 900k. Three new tool-provided inventories also returned separate reasoning
+and independently verified optimal plans at max, high and low effort. The API
+smoke suite includes a tool-continuation regression check; rendering checks can
+be run with `docker exec -w /deployment glm53-native python3 tests/test_chat_template.py`.
+Fresh follow-ups also passed three short seed requests, four around 600k,
+and eight at 900k–1.023M,
+including reminder-off controls. See [reproducible procedure and results](TOOL_REASONING_VALIDATION.md).
+Additional reasoning can increase latency and output usage; a prompt reminder
+cannot guarantee every model response complies.
+
+Preserve returned assistant `reasoning` when replaying tool history and retain
+complete tool definitions and results. Clients that drop or convert those fields
+can introduce a separate failure. `clear_thinking=false` remains the default.
 
 ### Reply length
 
@@ -565,12 +609,21 @@ The historical 9 GiB deployment was validated on **2026-10-03**; the current 8 G
 | Layout and runtime comparison | New source mounts; unchanged image, settings, model/cache/log mounts and runtime code |
 | Source sync against live folder | Refused before writing |
 | Container health after checks | Both healthy; no local OOM observed |
-| Larger prefills / million-token workload | **Not repeated or qualified at 8 GiB** |
+| Larger prefills / million-token workload | Not tested in this 2026-10-07 layout check; later synthetic results below |
 | 32-image / maximum-resolution workloads | **Not tested** |
 
 The earlier 8 GiB checks from 2026-10-04 remain recorded separately in the
 validation summary. The layout migration reused existing target and draft
 snapshots and passed 26 CPU regression tests on each node.
+
+### Tool-continuation follow-up — 2026-10-09
+
+Fresh generated-data tests passed three short seed requests, four around 600k,
+and eight at 900k–1,023,032 input tokens on the unchanged 8 GiB / C6 profile. Every request
+returned separate reasoning and an independently verified correct plan; no OOMs,
+preemptions or unexpected restarts were observed. Reminder-off controls also
+passed, so these fixtures did not reproduce the original failure or establish
+that the reminder was necessary here. See the [procedure, results and limits](TOOL_REASONING_VALIDATION.md).
 
 ### Historical 9 GiB checks — 2026-10-03
 
@@ -583,7 +636,7 @@ stopped.
 
 The historical 9 GiB / 6,144-token / six-slot profile passed all four alias checks, eight smoke cases and six concurrent 256-token requests after a cached restart; streams took 11.10–14.67 seconds with zero preemptions. Six larger concurrent requests also completed in 29.01–46.69 seconds with zero preemptions. Their peak running count was four because the scheduler admitted prefills within its token budget; six submitted requests need not all be running at once. The initial uncached run completed all six larger requests but recorded one preemption. Its cause remains unconfirmed. The head has limited RAM and uses swap, so this is basic workload validation rather than a maximum-safe-pool determination. The validation summary records both profiles. Raw experiment reports are excluded from this public repository.
 
-The context setting and cache estimate are boot evidence, not completed million-token workload validation. Long-context testing is reserved for manual evaluation. There is no qualified broad performance benchmark for this native profile yet, and earlier deployment or upstream throughput tables are not measurements of this exact configuration.
+The context setting and cache estimate are boot evidence. The later synthetic tool-continuation checks above one million input tokens do not qualify arbitrary long production conversations or retrieval throughout million-token documents. Further long-context quality testing remains a manual evaluation. There is no qualified broad performance benchmark for this native profile yet, and earlier deployment or upstream throughput tables are not measurements of this exact configuration.
 
 ## Image rebuild and source maintenance
 

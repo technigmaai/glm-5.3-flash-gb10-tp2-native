@@ -41,16 +41,14 @@ t_thinking_on_by_default() {
   ok "$(jqb '.usage.completion_tokens') tok"
 }
 
-# Off per request. The model has no real non-thinking mode (an empty
-# <think></think> breaks long output), so off means `Reasoning Effort: Low`: a
-# short trace in the reasoning field and a bare answer. Before the parser patch
-# that trace landed in the content, so the content must be short and clean.
+# Thinking off uses the template's empty thinking block; the answer must be
+# clean and the parser must not classify it as reasoning.
 t_thinking_off_per_request() {
   post /v1/chat/completions "$(chat "$OFF" 512 'What is 17*23? Reply with the number only.')"
   check "content should be 391" '.choices[0].message.content | test("391")' || return
   check "content should be short, not a trace" '.choices[0].message.content | length < 40' || return
   check "content should hold no think tags" '.choices[0].message.content | test("think>") | not' || return
-  check "reasoning should be short (low effort)" '(.choices[0].message.reasoning // .choices[0].message.reasoning_content // "") | length < 600' || return
+  check "reasoning should be absent" '(.choices[0].message.reasoning // .choices[0].message.reasoning_content // "") | length == 0' || return
   ok "$(jqb '.usage.completion_tokens') tok"
 }
 
@@ -75,6 +73,27 @@ t_tool_call_parsed() {
   check "should call get_weather" '.choices[0].message.tool_calls[0].function.name == "get_weather"' || return
   check "arguments should name Paris" '.choices[0].message.tool_calls[0].function.arguments | fromjson | .city | test("Paris")' || return
   ok
+}
+
+# A tool continuation must return a real separate trace and the right call.
+t_tool_continuation_reasoning() {
+  post /v1/chat/completions "$(jq -n --arg m "$NAME" '{
+    model:$m, max_tokens:2048, temperature:0, tool_choice:"auto",
+    chat_template_kwargs:{enable_thinking:true,clear_thinking:false},
+    tools:[
+      {type:"function",function:{name:"get_factors",description:"Fetch two integer factors.",parameters:{type:"object",properties:{}}}},
+      {type:"function",function:{name:"submit_product",description:"Submit their product.",parameters:{type:"object",properties:{product:{type:"integer"}},required:["product"]}}}
+    ],
+    messages:[
+      {role:"user",content:"Get the factors, multiply them, and call submit_product with the result."},
+      {role:"assistant",content:null,tool_calls:[{id:"factors-1",type:"function",function:{name:"get_factors",arguments:"{}"}}]},
+      {role:"tool",tool_call_id:"factors-1",content:"{\"left\":37,\"right\":29}"}
+    ]}')"
+  check "should finish with a tool call" '.choices[0].finish_reason == "tool_calls"' || return
+  check "reasoning should be present after the result" '(.choices[0].message.reasoning // .choices[0].message.reasoning_content // "") | length > 0' || return
+  check "should call submit_product" '.choices[0].message.tool_calls[0].function.name == "submit_product"' || return
+  check "product should be 1073" '.choices[0].message.tool_calls[0].function.arguments | fromjson | .product == 1073' || return
+  ok "$(jqb '.usage.completion_tokens') tok"
 }
 
 # Multimodal. A text-only chat template once made images fail here while text

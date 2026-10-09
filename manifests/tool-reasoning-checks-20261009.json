@@ -1,0 +1,416 @@
+{
+  "validated_on": "2026-10-09",
+  "hardware": "Two GB10 nodes; native TP2; one container per node",
+  "template_sha256": "9cdc8d7b922d498d8d797436edfedcea1a7fbce8ed2e83c421bb8d2e7fe01781",
+  "parameters": {
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 739,
+    "max_tokens_per_test_request": 8192,
+    "enable_thinking": true,
+    "clear_thinking": false,
+    "reasoning_effort": "max"
+  },
+  "method": "Three genuine short seed rounds; synthetic processed archive; new inventory revealed only through successive tool results; exhaustive independent optimal-plan scoring.",
+  "deployment_changed": false,
+  "maximum_prompt_tokens": 1023032,
+  "health": {
+    "http_status": 200,
+    "both_containers_running": true,
+    "container_restarts": 0,
+    "oom_observed": false,
+    "preemptions": 0
+  },
+  "limitations": [
+    "Reminder-off controls at 600k, 900k and 1.02M also passed; this fresh fixture did not reproduce missing thinking.",
+    "Synthetic background with instructions and fresh data near the end; not a qualification of arbitrary million-token retrieval or production sessions.",
+    "Request output allowance is not a deployment-wide cap; thinking compliance is not guaranteed."
+  ],
+  "runs": [
+    {
+      "name": "reasoning-followup-20261009",
+      "cases": [
+        {
+          "label": "600k-batch3-reminder-off",
+          "prompt_tokens": 599948,
+          "reasoning_tokens": 1174,
+          "correct_plan": true,
+          "plan": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "passed": true
+        },
+        {
+          "label": "600k-batch3-reminder-on",
+          "prompt_tokens": 599986,
+          "reasoning_tokens": 992,
+          "correct_plan": true,
+          "plan": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "passed": true
+        },
+        {
+          "label": "600k-batch4-reminder-on",
+          "prompt_tokens": 601463,
+          "reasoning_tokens": 975,
+          "correct_plan": true,
+          "plan": {
+            "batch_id": 4,
+            "ids": [
+              "D",
+              "G",
+              "H"
+            ],
+            "total_cost": 51,
+            "total_value": 175
+          },
+          "passed": true
+        },
+        {
+          "label": "600k-batch5-reminder-on",
+          "prompt_tokens": 602931,
+          "reasoning_tokens": 1261,
+          "correct_plan": true,
+          "plan": {
+            "batch_id": 5,
+            "ids": [
+              "B",
+              "C",
+              "G"
+            ],
+            "total_cost": 45,
+            "total_value": 218
+          },
+          "passed": true
+        },
+        {
+          "label": "short-batch0",
+          "prompt_tokens": 574,
+          "reasoning_tokens": 1222,
+          "correct_plan": true,
+          "plan": {
+            "batch_id": 0,
+            "ids": [
+              "C",
+              "F",
+              "G"
+            ],
+            "total_cost": 61,
+            "total_value": 201
+          },
+          "passed": true
+        },
+        {
+          "label": "short-batch1",
+          "prompt_tokens": 2269,
+          "reasoning_tokens": 1011,
+          "correct_plan": true,
+          "plan": {
+            "batch_id": 1,
+            "ids": [
+              "E",
+              "F",
+              "G"
+            ],
+            "total_cost": 59,
+            "total_value": 199
+          },
+          "passed": true
+        },
+        {
+          "label": "short-batch2",
+          "prompt_tokens": 3748,
+          "reasoning_tokens": 1095,
+          "correct_plan": true,
+          "plan": {
+            "batch_id": 2,
+            "ids": [
+              "B",
+              "C",
+              "G"
+            ],
+            "total_cost": 62,
+            "total_value": 150
+          },
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "reasoning-big-context-20261009",
+      "cases": [
+        {
+          "label": "1020000-batch3-reminder-off",
+          "prompt_tokens": 1019945,
+          "reasoning_tokens": 1112,
+          "reasoning_chars": 2213,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "actual": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        },
+        {
+          "label": "1020000-batch3-reminder-on",
+          "prompt_tokens": 1019983,
+          "reasoning_tokens": 979,
+          "reasoning_chars": 1984,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "actual": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        },
+        {
+          "label": "1020000-batch4-reminder-on",
+          "prompt_tokens": 1021463,
+          "reasoning_tokens": 1039,
+          "reasoning_chars": 2136,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 4,
+            "ids": [
+              "D",
+              "G",
+              "H"
+            ],
+            "total_cost": 51,
+            "total_value": 175
+          },
+          "actual": {
+            "batch_id": 4,
+            "ids": [
+              "D",
+              "G",
+              "H"
+            ],
+            "total_cost": 51,
+            "total_value": 175
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        },
+        {
+          "label": "1020000-batch5-reminder-on",
+          "prompt_tokens": 1023032,
+          "reasoning_tokens": 1256,
+          "reasoning_chars": 2567,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 5,
+            "ids": [
+              "B",
+              "C",
+              "G"
+            ],
+            "total_cost": 45,
+            "total_value": 218
+          },
+          "actual": {
+            "batch_id": 5,
+            "ids": [
+              "B",
+              "C",
+              "G"
+            ],
+            "total_cost": 45,
+            "total_value": 218
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        },
+        {
+          "label": "900000-batch3-reminder-off",
+          "prompt_tokens": 900008,
+          "reasoning_tokens": 1174,
+          "reasoning_chars": 2289,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "actual": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        },
+        {
+          "label": "900000-batch3-reminder-on",
+          "prompt_tokens": 900046,
+          "reasoning_tokens": 1278,
+          "reasoning_chars": 2469,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "actual": {
+            "batch_id": 3,
+            "ids": [
+              "F",
+              "G",
+              "H"
+            ],
+            "total_cost": 55,
+            "total_value": 170
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        },
+        {
+          "label": "900000-batch4-reminder-on",
+          "prompt_tokens": 901793,
+          "reasoning_tokens": 1299,
+          "reasoning_chars": 2604,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 4,
+            "ids": [
+              "D",
+              "G",
+              "H"
+            ],
+            "total_cost": 51,
+            "total_value": 175
+          },
+          "actual": {
+            "batch_id": 4,
+            "ids": [
+              "D",
+              "G",
+              "H"
+            ],
+            "total_cost": 51,
+            "total_value": 175
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        },
+        {
+          "label": "900000-batch5-reminder-on",
+          "prompt_tokens": 903575,
+          "reasoning_tokens": 1355,
+          "reasoning_chars": 2637,
+          "correct_plan": true,
+          "expected": {
+            "batch_id": 5,
+            "ids": [
+              "B",
+              "C",
+              "G"
+            ],
+            "total_cost": 45,
+            "total_value": 218
+          },
+          "actual": {
+            "batch_id": 5,
+            "ids": [
+              "B",
+              "C",
+              "G"
+            ],
+            "total_cost": 45,
+            "total_value": 218
+          },
+          "finish_reason": "tool_calls",
+          "count_matches_usage": true,
+          "separate_reasoning": true,
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "deployment_settings": {
+    "kv_cache_memory_bytes_per_gpu": 8589934592,
+    "shared_kv_capacity_tokens": 1352535,
+    "max_num_seqs": 6,
+    "max_num_batched_tokens": 6144,
+    "max_model_len": 1047552,
+    "image_limit": 32
+  }
+}
