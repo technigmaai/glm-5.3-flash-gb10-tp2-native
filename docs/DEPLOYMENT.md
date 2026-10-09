@@ -625,6 +625,11 @@ preemptions or unexpected restarts were observed. Reminder-off controls also
 passed, so these fixtures did not reproduce the original failure or establish
 that the reminder was necessary here. See the [procedure, results and limits](TOOL_REASONING_VALIDATION.md).
 
+The subsequent DeepSeek Harness run completed 100 independently verified rounds,
+reaching 774,863 input tokens. All 98 direct tool continuations contained separate
+reasoning, including 35 above 500k. The reviewed fixture, original generated-data
+audit and [verification results](TOOL_REASONING_VALIDATION.md#deepseek-harness-run) are published.
+
 ### Historical 9 GiB checks — 2026-10-03
 
 At C6, boot reported **1,524,917 equivalent KV tokens**. The warm checks reached

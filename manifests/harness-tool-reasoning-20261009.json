@@ -1,0 +1,78 @@
+{
+  "validated_on": "2026-10-09",
+  "client": "DeepSeek Harness",
+  "model": "nvidia/GLM-5.3-Flash-NVFP4",
+  "reasoning_effort": "max",
+  "client_max_output_tokens": 65536,
+  "hardware": "Two GB10 nodes; native TP2; one container per node",
+  "method": "100 sequential fresh-inventory rounds; synthetic numeric archive; independent exhaustive scoring; reasoning stream/storage comparison; audit checked against session outputs.",
+  "fixture": "tests/harness-context/fixture.py",
+  "fixture_sha256": "4dd24b1aef77cc2f1d0d8b296b70c94e82a889c94daf8e7b17a527c4057b802c",
+  "audit": "tests/harness-context/recorded-audit-20261009.jsonl",
+  "audit_sha256": "0decc89d0f6f8f530761025b74470272267809c0a32e9d60d4c1f141b020b47f",
+  "results": {
+    "responses": 104,
+    "responses_with_reasoning": 104,
+    "direct_tool_continuations": 98,
+    "stream_storage_matches": 104,
+    "maximum_input_tokens": 774863,
+    "context_decreases": [],
+    "thresholds": {
+      "450000": {
+        "responses": 43,
+        "direct_tool_continuations": 40,
+        "direct_tool_with_reasoning": 40,
+        "first_step": 62,
+        "first_input_tokens": 453789
+      },
+      "500000": {
+        "responses": 37,
+        "direct_tool_continuations": 35,
+        "direct_tool_with_reasoning": 35,
+        "first_step": 68,
+        "first_input_tokens": 500138
+      },
+      "600000": {
+        "responses": 23,
+        "direct_tool_continuations": 21,
+        "direct_tool_with_reasoning": 21,
+        "first_step": 82,
+        "first_input_tokens": 603894
+      },
+      "700000": {
+        "responses": 10,
+        "direct_tool_continuations": 9,
+        "direct_tool_with_reasoning": 9,
+        "first_step": 95,
+        "first_input_tokens": 704364
+      }
+    },
+    "submission_count": 100,
+    "independently_correct_plans": 100,
+    "accepted_submissions": 100,
+    "rejected_submissions": 0,
+    "complete_payloads": 100,
+    "payload_count": 100,
+    "fixture_matches_supplied_code": true,
+    "tool_errors": [],
+    "compaction_truncation_overflow_error_events": [],
+    "raw_think_tags_in_ordinary_content": 0,
+    "time_context_injections_after_initial_step": 5,
+    "completed": true,
+    "elapsed_minutes": 54.56
+  },
+  "audit_verification": {
+    "inventory_records": 100,
+    "submission_records": 100,
+    "all_inventories_match_session_export": true,
+    "all_proposals_match_session_export": true,
+    "all_plans_independently_optimal": true,
+    "fixture_matches_supplied_code": true
+  },
+  "limitations": [
+    "Harness-reported usage and processed reasoning streams; raw outgoing HTTP payloads were not provided.",
+    "Five periodic time-context messages were injected by the Harness; their replies are excluded from direct-tool counts.",
+    "No reminder-off control in this run; the earlier failing-session replay supplies separate before/after evidence.",
+    "Task instructions and new inventories were near the end of synthetic background; this does not qualify arbitrary long-document retrieval, every model task or every harness."
+  ]
+}

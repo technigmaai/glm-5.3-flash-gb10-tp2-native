@@ -327,5 +327,18 @@
     "preemptions": 0,
     "unexpected_restarts": 0,
     "local_OOM_observed": false
+  },
+  "harness_tool_continuation_20261009": {
+    "details": "docs/TOOL_REASONING_VALIDATION.md#deepseek-harness-run",
+    "results": "manifests/harness-tool-reasoning-20261009.json",
+    "maximum_input_tokens": 774863,
+    "responses_with_separate_reasoning": 104,
+    "direct_tool_continuations_with_reasoning": 98,
+    "direct_tool_continuations_above_500k": 35,
+    "independently_correct_plans": 100,
+    "complete_archive_payloads": 100,
+    "missing_reasoning_observed": false,
+    "tool_errors": 0,
+    "compaction_or_truncation_observed": false
   }
 }
