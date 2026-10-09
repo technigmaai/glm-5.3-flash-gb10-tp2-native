@@ -145,7 +145,9 @@ prefill test; no OOM was observed locally in those checks.
 The reorganized layout was restarted and revalidated on **2026-10-07** with
 the same results and unchanged runtime settings.
 
-**An actual million-token workload is not qualified for this native profile.**
+Fresh tool-continuation checks passed up to **1,023,032 input tokens** with separate
+reasoning and independently verified correct plans. See [test details and limits](docs/TOOL_REASONING_VALIDATION.md).
+**Arbitrary million-token task accuracy remains unqualified.**
 The KV capacity is shared; six slots do not provide six simultaneous million-token
 contexts. Maximum image-count/resolution workloads are also untested. The head
 has limited free RAM; the earlier 9 GiB C6 uncached load used substantial swap.

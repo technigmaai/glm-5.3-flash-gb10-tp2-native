@@ -5,13 +5,14 @@
   "files": {
     ".env.example": "61e301ebe18735b69e7cdee139c602c5df871cd44d3c200eb997e812c2bde7b9",
     ".gitignore": "383e98535b77cbf68ba001fb3c38a5328ac105e6ddca393295f363e1ca1f3835",
-    "README.md": "b7980d94dfbc836b60be6b804c048a0b3e5a7857efacdf1363685fffa59dd457",
+    "README.md": "a1b59d8994e4fa33cf9d347496c2d99133e75889906257e012a0bdfae25f8e19",
     "THIRD_PARTY.md": "b133a258b308a57e7da4f303edda2857557f78799660bf37487f5a67ff457a32",
     "check.sh": "d5676028e880b389cf534c0ad449b9fa163428939eb2397fee43e58b1a09eeca",
     "compose.yaml": "e50cdb6e76411a53fa05c60fd9a7eee4859c4853e8cb6ccb6d4dd0fa73953406",
-    "docs/DEPLOYMENT.md": "fba7637d6e0417e9bed733b66014f690e13d8e614375bedcde103d9f8a5bb6b0",
+    "docs/DEPLOYMENT.md": "8eec4ab257567891daa86fb1365a01def27d7eb4d0ae30fae73dcfe738b5f005",
     "docs/EXTERNAL_FEEDBACK.md": "7fead7e51614fa22d13fdb9aacdfc59a0b53c326de9f4b95af352d8400fe9c15",
     "docs/LAYOUT_MIGRATION.md": "5798c9fa331efdb1bd7086ca9f78eb179dbc6731fef810c014502a5ca00a31c4",
+    "docs/TOOL_REASONING_VALIDATION.md": "8714883216728272ec0b82d7ea157b3ec5230c039635bd2ed210d63fbdaa1ae9",
     "files/chat_template.ORIGIN.md": "a1192ac09103c2c0df305edcaa4759798cbb29a1f7ed28d5353b852249c27e79",
     "files/chat_template.jinja": "9cdc8d7b922d498d8d797436edfedcea1a7fbce8ed2e83c421bb8d2e7fe01781",
     "files/display-kv/LICENSE.AGPL-3.0": "8d56b405468aad11f87ab5763f901e276e08d9646ff5c8481b1762b6b789e9ed",
@@ -65,7 +66,8 @@
     "image/display-kv/Dockerfile": "0df72384f4e830d4b33bfef5d6fd7794c5660d3304b357d959f053716555e873",
     "licenses/Apache-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "manifests/copy-assets.json": "5368d09c82c336c1c839b1c293de757d7a6c8c7734b91c029d6f99408b45df26",
-    "manifests/validation-summary.json": "9f3325161debb7f517866d857080db602df1e04845006f340812e26a54d9f7c4",
+    "manifests/tool-reasoning-checks-20261009.json": "597a9ebe8facf5d84669b73c4194ebc96a4502bcfc99c7b0ef2fc8bf28ebd52e",
+    "manifests/validation-summary.json": "f06a910a1a7cefd2e06a1a178c6a108488415aad3a3d4b36ea047e3ad0dc1a2d",
     "restart.sh": "c2b09d6f7e5448bb8f171ccc4817fbaf91b3cb9e4f4da1afc7a51dbcc8d5f1d9",
     "scripts/check.py": "6e8b254bbb69f6894df8274d16b805aa35d9deeeece895aa779bb744aae56830",
     "scripts/cluster.sh": "35230d1ce28be67ade9c96ca8c9c80db26be6eea0def73fc88f354646ae594c8",
@@ -93,6 +95,7 @@
     "tests/test_layout_operations.py": "fe7078cfceefae734c971c1091209432d7868d22c32b9797e5a01b5bf16afe44",
     "tests/verify-api.py": "4f805d6c2793467608f62533a3fefd0dac16fd1ae679cbbaa05ad19d1d2fff85",
     "tests/verify-concurrency.py": "44739f269a0ff0661f4bd8e495d7ab65c8f6f8668f3d1d0b32e3813079d1def5",
+    "tests/verify-long-tool-reasoning.py": "36dbc48ddf98f14ccc3c48b7bea54bfea88730f5a34e5cf05815803982fd39a3",
     "verify.sh": "97105a9202a2c10a3e155ba00f53d8784d4796035b090f7e9fa7bb26425d45d6"
   }
 }

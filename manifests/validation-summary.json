@@ -1,5 +1,5 @@
 {
-  "validated_on": "2026-10-07",
+  "validated_on": "2026-10-09",
   "hardware": "Two Linux ARM64 NVIDIA GB10 nodes; native TP2; one container per node",
   "source_commit": "c748079d45e6e070b2acb108a91edfe52f4a7747",
   "vllm_commit": "ddd6fbca148a867aad1fcab7ec72f582b9977db4",
@@ -19,7 +19,7 @@
     "real_TIME_WAIT_accepted_on_both_nodes": true
   },
   "limitations": [
-    "Million-token context setting is not a completed million-token workload test.",
+    "Synthetic tool-continuation checks passed above one million input tokens; arbitrary million-token task accuracy remains unqualified.",
     "Maximum image-count/resolution workloads have not been tested.",
     "Basic workload checks do not determine the maximum safe KV pool or qualify production workloads.",
     "Prefill queueing below MAX_NUM_SEQS is allowed by the batch token budget."
@@ -316,5 +316,16 @@
     "preemptions": 0,
     "unexpected_restarts": 0,
     "limitation": "Prompt/template mitigation; not a guarantee of reasoning compliance or real million-token task accuracy. Extra reasoning can increase output usage and latency."
+  },
+  "fresh_tool_continuation_20261009": {
+    "results": "manifests/tool-reasoning-checks-20261009.json",
+    "details": "docs/TOOL_REASONING_VALIDATION.md",
+    "fresh_600k_requests_passed": 7,
+    "fresh_900k_and_1020k_requests_passed": 8,
+    "maximum_prompt_tokens": 1023032,
+    "reminder_off_controls_also_passed": true,
+    "preemptions": 0,
+    "unexpected_restarts": 0,
+    "local_OOM_observed": false
   }
 }
