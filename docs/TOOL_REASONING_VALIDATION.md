@@ -29,6 +29,47 @@ All responses finished with parsed tool calls. No raw think/tool markers leaked 
 
 The existing 8 GiB KV / C6 / 6,144 batched-token / 1,047,552 context profile was unchanged. No OOMs, preemptions or unexpected container restarts were observed during the follow-ups. Both containers remained running; final API health was HTTP 200. Six slots are not six simultaneous million-token contexts.
 
+## DeepSeek Harness run
+
+A subsequent clean DeepSeek Harness session completed all 100 fresh planning
+rounds. Its largest recorded per-request input was **774,863 tokens**. Separate
+reasoning was present in **104/104 responses**, including **98/98 responses
+immediately following a tool result**. All **100 plans** were independently
+recomputed as optimal; no proposal was rejected.
+
+| Input threshold | Responses | Direct tool continuations with separate reasoning |
+|---|---:|---:|
+| 450k | 43 | 40/40 |
+| 500k | 37 | 35/35 |
+| 600k | 23 | 21/21 |
+| 700k | 10 | 9/9 |
+
+All 100 tool payloads included their boundary markers, current inventory and
+128 exact numeric archive records. No tool errors, truncation or recorded
+compaction were found; reported input counts rose monotonically. Reasoning
+stream text exactly matched stored reasoning blocks in all 104 responses, and
+no raw think tags appeared in ordinary assistant content. The run took about
+55 minutes with reasoning effort `max`; its client output allowance was 65,536
+tokens, separate from the server context limit.
+
+The separately supplied audit contained 100 inventories and 100 accepted
+submissions. Every inventory and proposal matched its session tool output/call,
+and every expected/actual plan matched independent exhaustive scoring. The
+[original fixture](../tests/harness-context/fixture.py) was byte-identical to the
+supplied exercise. The [reviewed audit](../tests/harness-context/recorded-audit-20261009.jsonl)
+contains only generated test data. [Machine-readable results and hashes](../manifests/harness-tool-reasoning-20261009.json)
+and [Harness reproduction instructions](../tests/harness-context/README.md) are included.
+The raw session export and final state file are excluded.
+
+The Harness injected five periodic time-context messages after the initial
+step; those replies are excluded from the direct-tool counts above. Usage and
+reasoning channels come from the processed Harness export; raw outgoing HTTP
+payloads were not available. There was no reminder-off control in this session,
+so it does not establish that the reminder was necessary for this particular
+fixture. This is successful end-to-end evidence through 774k for this Harness,
+with synthetic background and active tasks near the end. It does not qualify
+all harnesses, arbitrary long-document retrieval or every community report.
+
 ## Reproduce the fresh-data procedure
 
 The [standard-library API driver](../tests/verify-long-tool-reasoning.py) generates its own fixtures and genuine seed responses. It submits real, sequential inference requests and saves generated reasoning, content, tool calls and SSE records to a new output directory. It changes no deployment files and executes no model-generated terminal commands. It is opt-in and is not part of `verify.sh`.

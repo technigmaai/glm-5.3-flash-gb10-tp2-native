@@ -147,6 +147,8 @@ the same results and unchanged runtime settings.
 
 Fresh tool-continuation checks passed up to **1,023,032 input tokens** with separate
 reasoning and independently verified correct plans. See [test details and limits](docs/TOOL_REASONING_VALIDATION.md).
+A DeepSeek Harness run also completed **100/100 correct rounds** through **774,863 input tokens**,
+with separate reasoning in all **98 direct tool continuations**.
 **Arbitrary million-token task accuracy remains unqualified.**
 The KV capacity is shared; six slots do not provide six simultaneous million-token
 contexts. Maximum image-count/resolution workloads are also untested. The head
