@@ -515,7 +515,47 @@ curl -fsS "http://${HEAD_IP}:8000/v1/chat/completions" \
   --data '{"model":"glm53","messages":[{"role":"user","content":"Explain tensor parallelism in two sentences."}],"temperature":0.6}' | jq
 ```
 
-Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The exact [MiaAI template](../files/chat_template.jinja) is tracked in this repository; [provenance](../files/chat_template.ORIGIN.md) records its source and checksum. Compose passes `CHAT_TEMPLATE=/deployment/files/chat_template.jinja` using the existing read-only deployment mount. No image rebuild or model-cache edit is needed. To override it, set a container-visible `CHAT_TEMPLATE` path on both nodes and restart the pair. Reasoning defaults to `max`; explicit `low` and `high` are supported. `chat_template_kwargs.enable_thinking=false` (or `thinking=false`) now supplies an empty `<think></think>` prefix rather than selecting low effort. Keep reasoning enabled for reasoning workloads. The matching `files/overlays/fixes/glm47_moe.py` overlay makes the parser honour the same thinking flags; the earlier image parser forced reasoning on and misclassified disabled-thinking answers as reasoning. This change does not establish long-context quality. Parsed reasoning is returned in `message.reasoning` or streaming `delta.reasoning`, separately from `content`. Temperature and other sampling parameters belong in client requests.
+Clients can use the OpenAI-compatible base URL `http://HEAD_IP:8000/v1` and any configured model alias. Tools use the `glm47` parser; reasoning uses `glm45`. The [MiaAI-derived template](../files/chat_template.jinja) is tracked in this repository; [provenance](../files/chat_template.ORIGIN.md) records its source and checksum. Compose passes `CHAT_TEMPLATE=/deployment/files/chat_template.jinja` using the existing read-only deployment mount. No image rebuild or model-cache edit is needed. To override it, set a container-visible `CHAT_TEMPLATE` path on both nodes and restart the pair. Reasoning defaults to `max`; explicit `low` and `high` are supported. `chat_template_kwargs.enable_thinking=false` (or `thinking=false`) now supplies an empty `<think></think>` prefix rather than selecting low effort. Keep reasoning enabled for reasoning workloads. The matching `files/overlays/fixes/glm47_moe.py` overlay makes the parser honour the same thinking flags; the earlier image parser forced reasoning on and misclassified disabled-thinking answers as reasoning. This change does not establish long-context quality. Parsed reasoning is returned in `message.reasoning` or streaming `delta.reasoning`, separately from `content`. Temperature and other sampling parameters belong in client requests.
+
+### Tool continuation reasoning
+
+With thinking enabled and the last message a tool result, the template adds a
+short synthetic user continuation immediately before the assistant prefix:
+
+> Continue the original task using the latest tool result. Before your next answer or tool call, briefly assess the result in the thinking block. Keep that assessment separate from the user-facing answer.
+
+This requests a separate reasoning trace from the model. It does not relabel
+ordinary answer text or manufacture reasoning in the parser. The reminder is
+added only when rendering the next generation; it is not inserted into stored
+history. Existing reasoning history, tool-result ordering, image placeholders
+and effort settings are retained. Thinking-off requests, user-ended requests
+and history-only renders receive no reminder.
+
+To restore the original MiaAI rendering for a request, send:
+
+```json
+{"chat_template_kwargs":{"enable_thinking":true,"tool_reasoning_reminder":false}}
+```
+
+Direct replay on 2026-10-09 of a real tool continuation returned zero separate
+reasoning tokens at 38k, 500k and 900k prompt tokens with the original template.
+The model itself immediately generated `</think>` in raw completions. The
+reminder restored separate reasoning and the correct selected plan at all three
+sizes; three successive continuations around 900k also passed. Long prompts
+used synthetic background padding around actual session history. These checks
+qualify this mitigation for the reproducer, not all production conversations
+or million-token task accuracy. After restart, requests with the original
+messages and no client-added reminder returned 246 reasoning tokens at 38k and
+205 at 900k. Three new tool-provided inventories also returned separate reasoning
+and independently verified optimal plans at max, high and low effort. The API
+smoke suite includes a tool-continuation regression check; rendering checks can
+be run with `docker exec -w /deployment glm53-native python3 tests/test_chat_template.py`.
+Additional reasoning can increase latency and output usage; a prompt reminder
+cannot guarantee every model response complies.
+
+Preserve returned assistant `reasoning` when replaying tool history and retain
+complete tool definitions and results. Clients that drop or convert those fields
+can introduce a separate failure. `clear_thinking=false` remains the default.
 
 ### Reply length
 

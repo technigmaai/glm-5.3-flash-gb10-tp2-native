@@ -179,5 +179,142 @@
     "live_source_sync_guard": "refused synchronization before writing",
     "million_token_workload_tested": false,
     "maximum_image_count_resolution_tested": false
+  },
+  "tool_continuation_reasoning_20261009": {
+    "validated_on": "2026-10-09",
+    "template_sha256": "9cdc8d7b922d498d8d797436edfedcea1a7fbce8ed2e83c421bb8d2e7fe01781",
+    "method": "Real exported tool history with synthetic background padding; commands were not executed. Deterministic API requests: temperature 0, top_p 1, seed 42.",
+    "before_restart_prompt_sizes": [
+      38259,
+      499998,
+      900041
+    ],
+    "before_restart_baseline_reasoning_tokens": [
+      0,
+      0,
+      0
+    ],
+    "before_restart_reminder_reasoning_tokens": [
+      240,
+      212,
+      194
+    ],
+    "successive_900k_tool_continuations_passed": 3,
+    "installed_template": [
+      {
+        "label": "900000-installed-template",
+        "reasoning_chars": 567,
+        "correct_plan": true,
+        "finish_reason": "tool_calls",
+        "prompt_tokens": 900079,
+        "reasoning_tokens": 205
+      },
+      {
+        "label": "short-installed-reminder-off",
+        "reasoning_chars": 0,
+        "finish_reason": "tool_calls",
+        "prompt_tokens": 38259,
+        "reasoning_tokens": 0
+      },
+      {
+        "label": "short-installed-template",
+        "reasoning_chars": 638,
+        "correct_plan": true,
+        "finish_reason": "tool_calls",
+        "prompt_tokens": 38297,
+        "reasoning_tokens": 246
+      },
+      {
+        "label": "short-installed-thinking-off",
+        "reasoning_chars": 0,
+        "finish_reason": "tool_calls",
+        "prompt_tokens": 38253,
+        "reasoning_tokens": 0
+      }
+    ],
+    "fresh_tool_inventories": [
+      {
+        "label": "fresh-high",
+        "expected": {
+          "ids": [
+            "E",
+            "F",
+            "G"
+          ],
+          "cost": 49,
+          "value": 113
+        },
+        "parsed_plan": {
+          "cost": 49,
+          "ids": [
+            "E",
+            "F",
+            "G"
+          ],
+          "value": 113
+        },
+        "correct_plan": true,
+        "reasoning_chars": 992,
+        "finish_reason": "tool_calls",
+        "reasoning_tokens": 524
+      },
+      {
+        "label": "fresh-low",
+        "expected": {
+          "ids": [
+            "B",
+            "E",
+            "F"
+          ],
+          "cost": 41,
+          "value": 99
+        },
+        "parsed_plan": {
+          "cost": 41,
+          "ids": [
+            "B",
+            "E",
+            "F"
+          ],
+          "value": 99
+        },
+        "correct_plan": true,
+        "reasoning_chars": 759,
+        "finish_reason": "tool_calls",
+        "reasoning_tokens": 375
+      },
+      {
+        "label": "fresh-max",
+        "expected": {
+          "ids": [
+            "A",
+            "F",
+            "G"
+          ],
+          "cost": 47,
+          "value": 132
+        },
+        "parsed_plan": {
+          "cost": 47,
+          "ids": [
+            "A",
+            "F",
+            "G"
+          ],
+          "value": 132
+        },
+        "correct_plan": true,
+        "reasoning_chars": 2549,
+        "finish_reason": "tool_calls",
+        "reasoning_tokens": 1108
+      }
+    ],
+    "rendering_checks_passed": 8,
+    "smoke_checks_passed": 9,
+    "image_smoke_passed": true,
+    "peak_simultaneous_short_streams": 6,
+    "preemptions": 0,
+    "unexpected_restarts": 0,
+    "limitation": "Prompt/template mitigation; not a guarantee of reasoning compliance or real million-token task accuracy. Extra reasoning can increase output usage and latency."
   }
 }
