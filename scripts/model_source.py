@@ -39,13 +39,25 @@ def snapshot_fingerprint_config(model_config, checkpoint_hash):
     metadata hasher recognizes it. Otherwise retain the original model/revision.
     No processed tensor files or snapshot manifests are rewritten.
     """
-    if Path(model_config.model).is_absolute():
-        return model_config
-    try:
-        local = cache_snapshot(os.environ.get('HF_HUB_CACHE', HUB_MOUNT),
-                               model_config.model, model_config.revision)
-    except ValueError:
-        return model_config
+    hub = Path(os.environ.get('HF_HUB_CACHE', HUB_MOUNT))
+    local = Path(model_config.model)
+    if local.is_absolute():
+        # Offline vLLM may resolve the ID before the weight loader sees it.
+        try:
+            parts = local.relative_to(hub).parts
+        except ValueError:
+            return model_config
+        if (len(parts) != 3 or not parts[0].startswith('models--') or
+                parts[1] != 'snapshots' or parts[2] != model_config.revision or
+                not re.fullmatch(r'[a-f0-9]{40}', model_config.revision or '') or
+                not (local / 'config.json').is_file() or
+                not local.resolve().is_relative_to(hub.resolve())):
+            return model_config
+    else:
+        try:
+            local = cache_snapshot(hub, model_config.model, model_config.revision)
+        except ValueError:
+            return model_config
     if not checkpoint_hash(str(local)):
         return model_config
     result = copy.copy(model_config)

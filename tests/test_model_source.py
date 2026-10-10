@@ -61,6 +61,19 @@ class ModelSourceTests(unittest.TestCase):
         with patch.dict(os.environ, HF_HUB_CACHE=str(self.hub)):
             self.assertIs(snapshot_fingerprint_config(model, lambda p: None), model)
 
+    def test_vllm_resolved_absolute_cache_path_reuses_same_checkpoint(self):
+        model = SimpleNamespace(model=str(self.snapshot), revision=REV)
+        with patch.dict(os.environ, HF_HUB_CACHE=str(self.hub)):
+            normalized = snapshot_fingerprint_config(model, lambda p: 'known-checkpoint')
+        self.assertEqual(normalized.model, str(self.snapshot))
+        self.assertIsNone(normalized.revision)
+        self.assertEqual(model.revision, REV)
+
+    def test_absolute_cache_path_with_different_revision_keeps_original_identity(self):
+        model = SimpleNamespace(model=str(self.snapshot), revision='b' * 40)
+        with patch.dict(os.environ, HF_HUB_CACHE=str(self.hub)):
+            self.assertIs(snapshot_fingerprint_config(model, lambda p: 'known'), model)
+
     def test_missing_or_local_checkpoint_preserves_original_fingerprint(self):
         for model in [SimpleNamespace(model='org/model', revision='b' * 40),
                       SimpleNamespace(model='/models/flat', revision=None)]:

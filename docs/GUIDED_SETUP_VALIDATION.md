@@ -50,7 +50,8 @@ separate pinned commit revisions. Fresh configuration now records one HF hub
 cache location instead of model snapshot paths. The launcher selects either the
 read-only HF-cache mount or the explicit-path compatibility mounts.
 
-Before cutover, 86 CPU regression tests passed on each node. Both the HF-ID and
+The follow-up suite contains 88 CPU regression tests, including vLLM’s internally
+resolved offline-cache paths and mismatched-revision rejection. Both the HF-ID and
 existing explicit-path configurations passed real Docker Compose/model checks.
 Temporary CPU-only containers with networking disabled resolved both pinned IDs,
 loaded the target tokenizer, and matched the installed processed-snapshot
