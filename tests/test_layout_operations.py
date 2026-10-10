@@ -64,6 +64,14 @@ class LayoutOperations(unittest.TestCase):
         call = next(c for c in self.calls() if c[0] == 'ssh')
         self.assertEqual(shlex.split(call[-1]), ['bash', '/path with spaces/worker/scripts/cluster.sh', 'node-logs', '--tail', '20'])
 
+    def test_hf_model_id_selects_hf_mounts_in_launcher(self):
+        with (self.root / '.env').open('a') as f:
+            f.write('MODEL_ID=org/model\n')
+        result = self.run_root('start.sh', '--approved')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        docker = next(c for c in self.calls() if c[0] == 'docker')
+        self.assertIn(str(self.root / 'compose.models-hf.yaml'), docker)
+
     def test_stop_stops_both_ranks(self):
         result = self.run_root('stop.sh', '--approved')
         self.assertEqual(result.returncode, 0, result.stderr)

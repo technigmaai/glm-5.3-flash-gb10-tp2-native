@@ -1,6 +1,6 @@
 # Guided setup validation — 2026-10-10
 
-The helper was tested in separate temporary source folders on two ARM64 GB10
+The initial PR #5 revision (`3fd633b`) was tested in separate temporary source folders on two ARM64 GB10
 nodes while their existing model deployment remained running.
 
 | Check | Result |
@@ -42,3 +42,20 @@ probes are reachability diagnostics, not RDMA bandwidth or GPU collective tests.
 This validation covers setup and configuration; it does not claim a new model
 startup or inference benchmark. Runtime entrypoint, Compose service architecture
 and serving profile were not changed by this feature.
+
+## Direct HF-ID loading follow-up
+
+The follow-up changes the loading argument to the target and draft HF IDs with
+separate pinned commit revisions. Fresh configuration now records one HF hub
+cache location instead of model snapshot paths. The launcher selects either the
+read-only HF-cache mount or the explicit-path compatibility mounts.
+
+Before cutover, 86 CPU regression tests passed on each node. Both the HF-ID and
+existing explicit-path configurations passed real Docker Compose/model checks.
+Temporary CPU-only containers with networking disabled resolved both pinned IDs,
+loaded the target tokenizer, and matched the installed processed-snapshot
+fingerprints for the target and draft on each node. A dry run with the complete
+Compose environment and mounts checked the actual target ID/`--revision` and
+draft ID/speculative revision arguments without starting another inference engine.
+These checks do not constitute a long-context inference benchmark; live smoke
+results are recorded separately in the PR's validation notes.

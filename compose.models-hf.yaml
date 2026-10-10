@@ -1,0 +1,14 @@
+# ID-based loading: share the standard cache layout, without moving weights.
+services:
+  glm53:
+    environment:
+      HF_HUB_CACHE: /hf-cache/hub
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - type: bind
+        source: "${HF_HUB_HOST_DIR:?Set HF_HUB_HOST_DIR to this node's HF hub cache}"
+        target: /hf-cache/hub
+        read_only: true
+        bind:
+          create_host_path: false

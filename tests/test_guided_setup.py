@@ -93,8 +93,9 @@ class GuidedSetup(unittest.TestCase):
         data = setup.plan(self.head, self.worker, 'worker', profile='c6')
         for side, values in enumerate(data['values']):
             self.assertEqual(values['MODEL_ID'], 'nvidia/GLM-5.3-Flash-NVFP4')
-            self.assertEqual(values['MODEL_HOST_DIR'], f'/cache/user{side}/hub/models--nvidia--GLM-5.3-Flash-NVFP4')
-            self.assertEqual(values['MODEL_DIR'], '/models/glm-5.3-flash-nvfp4/snapshots/' + configure.MODEL_REVISION)
+            self.assertEqual(values['HF_HUB_HOST_DIR'], f'/cache/user{side}/hub')
+            self.assertEqual(values['MODEL_REVISION'], configure.MODEL_REVISION)
+            self.assertNotIn('MODEL_DIR', values)
             self.assertEqual(values['MAX_NUM_SEQS'], '6')
             self.assertEqual(values['MAX_NUM_BATCHED_TOKENS'], '6144')
             self.assertEqual(values['KV_CACHE_MEMORY'], '8589934592')

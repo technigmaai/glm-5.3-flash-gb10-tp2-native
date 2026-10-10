@@ -8,6 +8,7 @@ import sys
 from deployment_checks import display_kv_checks, validate_model_mount
 from settings import load_settings
 from fabric_selectors import parse_selectors
+from model_source import HUB_MOUNT, cache_snapshot, compose_command
 
 
 def main():
@@ -18,9 +19,8 @@ def main():
         assert hashlib.sha256((root / name).read_bytes()).hexdigest() == expected, name
     for name in ('files/entrypoint.sh', 'scripts/cluster.sh', 'scripts/legacy.sh', 'start.sh', 'stop.sh', 'restart.sh', 'status.sh', 'tail-log.sh', 'check.sh', 'sync-repo.sh', 'verify.sh'):
         subprocess.run(['bash', '-n', str(root / name)], check=True)
-    rendered = subprocess.check_output(['docker', 'compose', '--env-file', str(root / '.env'),
-        '-p', settings.get('PROJECT_NAME', 'glm53-native'), '-f', str(root / 'compose.yaml'),
-        'config', '--format', 'json'], text=True)
+    rendered = subprocess.check_output(compose_command(root, settings) +
+        ['config', '--format', 'json'], text=True)
     services = json.loads(rendered)['services']
     assert list(services) == ['glm53'], 'Expected exactly one model service'
     s = services['glm53']; env = s['environment']
@@ -37,12 +37,24 @@ def main():
         assert Path(volume['source']).exists(), volume['source']
         if volume['target'].startswith(('/usr/local/lib/', '/opt/')) or volume['target'] == '/deployment':
             assert Path(volume['source']).resolve().is_relative_to(root), 'Source patch is outside this deployment'
-        if volume['target'].startswith('/models/') or volume['target'] == '/weight-snapshot-seed':
+        if volume['target'].startswith('/models/') or volume['target'] in (HUB_MOUNT, '/weight-snapshot-seed'):
             assert volume['read_only'], 'Model and seed weights must be read-only'
-    for key, target in (('MODEL_DIR', '/models/glm-5.3-flash-nvfp4'), ('DFLASH_MODEL', '/models/glm-5.3-flash-dflash2')):
-        host = next(Path(v['source']) for v in s['volumes'] if v['target'] == target)
-        config = validate_model_mount(host, target, env[key], tokenizer=key == 'MODEL_DIR', label=key)
-        if key == 'MODEL_DIR':
+    if env.get('MODEL_ID'):
+        assert env.get('HF_HUB_CACHE') == HUB_MOUNT
+        assert env.get('HF_HUB_OFFLINE') == '1' and env.get('TRANSFORMERS_OFFLINE') == '1'
+        host = next(Path(v['source']) for v in s['volumes'] if v['target'] == HUB_MOUNT)
+        models = []
+        for prefix in ('MODEL', 'DRAFT'):
+            local = cache_snapshot(host, env.get(prefix + '_ID'), env.get(prefix + '_REVISION'))
+            models.append((prefix, host, HUB_MOUNT, str(Path(HUB_MOUNT) / local.relative_to(host))))
+    else:
+        assert not env.get('DRAFT_ID'), 'DRAFT_ID requires HF MODEL_ID mode'
+        models = [(key, next(Path(v['source']) for v in s['volumes'] if v['target'] == target),
+                   target, env[key]) for key, target in
+                  (('MODEL_DIR', '/models/glm-5.3-flash-nvfp4'), ('DFLASH_MODEL', '/models/glm-5.3-flash-dflash2'))]
+    for key, host, target, path in models:
+        config = validate_model_mount(host, target, path, tokenizer=key in ('MODEL', 'MODEL_DIR'), label=key)
+        if key in ('MODEL', 'MODEL_DIR'):
             limit = config.get('text_config', config).get('max_position_embeddings', 1048576)
             assert int(env['MAX_MODEL_LEN']) <= limit
     errors, advisories = display_kv_checks(env)

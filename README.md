@@ -86,8 +86,9 @@ the firewall automatically. Follow [guided setup](docs/DEPLOYMENT.md#guided-setu
 to apply those rules and check both directions before loading the model.
 
 The model input is `nvidia/GLM-5.3-Flash-NVFP4` plus its pinned revision. Setup
-finds the cache and generates snapshot paths; you do not need to type them or
-move model files. Existing installations keep their `.env`:
+finds the cache; vLLM loads both models by HF ID and pinned revision, offline.
+`/v1/models` reports the target ID in `root`. You do not need checkpoint paths
+or to move model files. Existing installations keep their `.env`:
 setup refuses to overwrite it. [Manual setup](docs/DEPLOYMENT.md#deployment)
 remains available through `.env.example`.
 
@@ -95,7 +96,9 @@ remains available through `.env.example`.
 dotted prefixes, or exact local IPs. Each selector identifies one distinct RoCE port.
 
 The image supplies the runtime; **this repository supplies the native entrypoint
-and overlays through Compose bind mounts**. Use the complete recipe when starting
+and overlays through Compose bind mounts**. The launchers automatically select
+`compose.models-hf.yaml` for ID-based loading or `compose.models-local.yaml`
+for explicit paths. Use the complete recipe when starting
 it. Replies have no fixed deployment output-token cap: omit `max_tokens` and
 `max_completion_tokens` in client requests to use the remaining context budget.
 Clients may still impose their own limits, and the model may stop earlier.

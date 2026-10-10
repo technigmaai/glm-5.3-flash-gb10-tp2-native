@@ -67,14 +67,15 @@ class Snapshot:
             get_tensor_model_parallel_rank,
             get_tensor_model_parallel_world_size,
         )
-        from vllm.model_executor.model_loader.weight_cache.protocol import WeightCacheKey
+        from vllm.model_executor.model_loader.weight_cache.protocol import WeightCacheKey, hash_checkpoint
+        from vllm.model_executor.model_loader.model_source import snapshot_fingerprint_config
 
         spec = vllm_config.speculative_config
         is_draft = spec is not None and model_config is spec.draft_model_config
         dp = get_dp_group()
         key = asdict(
             WeightCacheKey.from_model_config(
-                model_config,
+                snapshot_fingerprint_config(model_config, hash_checkpoint),
                 tp_size=get_tensor_model_parallel_world_size(),
                 tp_rank=get_tensor_model_parallel_rank(),
                 is_draft=is_draft,

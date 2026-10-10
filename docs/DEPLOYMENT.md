@@ -332,14 +332,28 @@ qualified target and DFlash2 revisions already supplied as defaults:
 The helper honors the deployment user's `HF_HUB_CACHE`, legacy
 `HUGGINGFACE_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` in that order;
 otherwise it uses `~/.cache/huggingface/hub`. On the worker these must be available
-in the SSH command environment. It derives model cache roots and container snapshot
-paths from IDs/revisions, mounts the complete per-model cache read-only, and never
-copies or relocates weights. [Hugging Face cache layout](https://huggingface.co/docs/huggingface_hub/guides/manage-cache)
-explains why `blobs/` must accompany `snapshots/` to preserve tokenizer symlinks.
-The native loader still receives resolved local paths; generated `MODEL_ID` and
-revision entries record their inputs. Changing those metadata entries alone in an
-existing `.env` does not rewrite its paths. Non-default IDs/revisions require
-independent compatibility validation; setup does not qualify a different model.
+in the SSH command environment. It records one `HF_HUB_HOST_DIR` and the target/draft
+IDs plus full commit revisions. Both models are passed to vLLM by ID directly.
+The complete HF hub cache is mounted read-only at `/hf-cache/hub`, with
+`HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`. Startup never downloads or moves
+weights; a missing pinned snapshot fails the pre-start check. `/v1/models`
+reports `nvidia/GLM-5.3-Flash-NVFP4` in `root`, while clients still use the listed
+aliases. Non-default IDs/revisions require independent compatibility validation.
+
+`start.sh`, `check.sh` and the other launchers automatically combine the shared
+`compose.yaml` with `compose.models-hf.yaml` when `MODEL_ID` is set; otherwise
+they select `compose.models-local.yaml`. A bare `docker compose -f compose.yaml`
+command omits model mounts: use the launchers, or explicitly include the matching
+second file. Neither option adds another container.
+
+Existing path-based `.env` files still work without `MODEL_ID`. To migrate, back
+up both node configurations; set `HF_HUB_HOST_DIR` to each node's hub cache and
+add the four pinned ID/revision settings from `.env.example`. Remove the old
+`MODEL_HOST_DIR`, `MODEL_DIR`, `DFLASH_HOST_DIR` and `DFLASH_MODEL` entries to avoid
+confusion, run `check.sh` on both nodes, and restart from the head. Existing
+processed snapshots are reused only when the pinned cached checkpoint has the
+same metadata fingerprint and the other processing settings match; no weight
+files or snapshot manifests are copied or rewritten.
 
 `--apply` refuses existing `.env` files (including dangling symlinks), modified or
 mismatching source manifests, inaccessible Docker inspection, and checkouts
@@ -459,7 +473,7 @@ Copy only for a fresh installation: do not overwrite an existing working `.env`.
 | `PEER_DEPLOY_DIR` | Absolute checkout path on worker | May be empty: `PEER_DEPLOY_DIR=` |
 | `DRM_CARD_GID` | Group ID printed on head | Group ID printed on worker |
 
-Also replace **every `/home/your-user` path** in the template: target cache, drafter cache, native cache, logs and snapshot seed. Set `IMAGE` to the installed patched tag on each host. `MODEL_DIR` and `DFLASH_MODEL` are paths **inside the container** and already point at the pinned revisions; leave them unchanged for the default cache layout. For a flat download, use the mount itself as described under [model paths](#model-paths-and-tokenizer-errors).
+Also replace **every `/home/your-user` path** in the template: HF hub cache, native cache, logs and snapshot seed. Set `IMAGE` to the installed patched tag on each host. Keep the four pinned model ID/revision values from the template. Explicit paths and flat downloads remain supported as described under [model paths](#model-paths-and-tokenizer-errors).
 
 Use literal absolute paths in `.env`, not `~`, `$HOME` or references to other variables: the launcher, Compose and Python settings reader all consume it. Quote values containing spaces or JSON as shown in the example.
 
@@ -883,7 +897,18 @@ An alternative is `GLM53_DISPLAY_KV_ENABLE=0` on **both** nodes followed by a pl
 
 Hugging Face cache snapshots normally contain relative links such as `tokenizer.json -> ../../blobs/<hash>`. This is the [standard cache layout](https://huggingface.co/docs/huggingface_hub/guides/manage-cache). Mount the complete per-model cache directory containing **both `blobs/` and `snapshots/`**, and preserve that structure when copying it to the worker. A snapshot-only mount or a cache copied without blobs can make files accessible on the host but broken inside the container. Moving or duplicating weights outside the cache is unnecessary for the default recipe.
 
-For the default target cache:
+The default ID-based setup uses:
+
+```dotenv
+HF_HUB_HOST_DIR=/home/your-user/.cache/huggingface/hub
+MODEL_ID=nvidia/GLM-5.3-Flash-NVFP4
+MODEL_REVISION=da920bb0b9f4a06727223a349e55468e38352348
+DRAFT_ID=incoai/GLM-5.3-Flash-DFlash2
+DRAFT_REVISION=bf582e4eacc1810f76656d1811693ff6c6737d2a
+```
+
+For **explicit-path compatibility**, unset/remove `MODEL_ID` and `DRAFT_ID`.
+The launcher selects `compose.models-local.yaml` and uses, for example:
 
 ```dotenv
 MODEL_HOST_DIR=/home/your-user/.cache/huggingface/hub/models--nvidia--GLM-5.3-Flash-NVFP4
