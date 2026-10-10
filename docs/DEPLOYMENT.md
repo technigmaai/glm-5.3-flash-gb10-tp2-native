@@ -214,13 +214,150 @@ sudo systemctl isolate multi-user.target
 
 This ends desktop sessions. The native launcher checks the host state; it does not change the boot target, install a kernel, or modify an initramfs. The allocator implementation, compiled ARM64 helper, integration and original license are in [files/display-kv/](../files/display-kv/), with provenance in [ORIGIN.md](../files/display-kv/ORIGIN.md).
 
+## Guided setup
+
+Use this for a **fresh installation** after [host preparation](#1-prepare-the-hosts)
+and cloning the same source revision on both nodes. Run it as the deployment user
+on the head; passwordless SSH must already work. Python 3.9+ is required by the
+host helpers. Both nodes still need headless NVIDIA drivers, Docker/Compose,
+NVIDIA Container Toolkit, Hugging Face CLI, and configured RoCE links. This helper
+configures the deployment; host driver installation and network re-IPing are
+operator tasks.
+
+With no active firewall blocking node traffic, the short path is:
+
+```bash
+./setup.sh --worker user@worker --apply --prepare-assets --check-network
+./check.sh
+./start.sh --approved
+./status.sh
+# Once API health and the startup self-test pass:
+./verify.sh
+```
+
+Use your actual SSH destination. The default worker checkout path is the same
+absolute path as the head; add `--worker-dir /absolute/worker/checkout` when it
+differs. `./setup.sh` with no arguments prompts for the worker and its path and
+creates a plan only. Add `--profile c6` for 6,144 batched tokens / six slots;
+the default is C4 with 8 GiB KV. Both profiles retain image input and the
+1,047,552-token context limit. The helper never starts/stops containers. It also finds a user-installed `~/.local/bin/hf`
+when SSH omits that directory from `PATH`. Missing download tooling is reported
+before writing configurations when `--prepare-assets` is selected.
+
+### Review first, including firewalls
+
+```bash
+./setup.sh --worker user@worker --client-cidr 10.10.0.99/32
+```
+
+The printed private `site/setup-<timestamp>-<id>/` directory contains:
+
+| File | Purpose |
+|---|---|
+| `plan.json` | Node inventory, selected links, prerequisite warnings and planned settings |
+| `head.env`, `worker.env` | Separate node settings for review |
+| `head.ufw.sh`, `worker.ufw.sh` | Optional firewall commands, scoped to exact peer addresses/interfaces |
+| `head.prepare.sh`, `worker.prepare.sh` | Image pull and resumable pinned model downloads in each node's own HF cache |
+
+The directory is mode 700; files are mode 600 and Git-ignored. No HF credentials
+are collected. Review the printed plan, especially the selected interfaces.
+For active UFW, run each reviewed firewall script on its corresponding host:
+
+```bash
+# Set PLAN to the private directory printed by setup.
+PLAN='/absolute/head/checkout/site/setup-<timestamp>-<id>'
+bash "$PLAN/head.ufw.sh"
+ssh user@worker 'bash -s' < "$PLAN/worker.ufw.sh"
+```
+
+These scripts add inbound **and outbound** access only between each pair of node
+addresses, on their management and two RoCE interfaces. Internal peer rules allow
+all ports/protocols between those trusted addresses. Gloo uses dynamically chosen
+ports after the master rendezvous, and NCCL can open additional TCP sockets;
+opening only 29553/29511 is insufficient. See the [PyTorch maintainer explanation](https://discuss.pytorch.org/t/connection-refused-with-gloo-process-group-initialization/144857/5)
+and [NCCL networking guide](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting/networking_troubleshooting.html).
+The scripts never enable, disable or reset UFW, change its global policy, modify
+kernel port ranges, or configure router port forwarding. Existing rules remain.
+If the DRM modesetting flag is root-only and cannot be read with passwordless sudo,
+the plan reports it as unknown; confirm `sudo cat /sys/module/nvidia_drm/parameters/modeset`
+shows `Y`/`1` before starting. Config generation does not start the display allocator.
+If UFW status cannot be read non-interactively, the plan reports it as unknown;
+verify with `sudo ufw status`. With other firewalls, translate the displayed rules
+to your firewall rather than running UFW scripts. Rule ordering and other firewall
+layers may still block traffic; the following probe checks actual reachability.
+
+`--client-cidr` adds only an inbound TCP 8000 rule on the head for that client/network.
+Without it, no API client rule is generated. Do not expose internal distributed
+ports or the status helper to arbitrary clients. The model API is unauthenticated
+unless you separately configure access controls.
+
+After firewall review, create both node configurations and check the network:
+
+```bash
+./setup.sh --worker user@worker --client-cidr 10.10.0.99/32 \
+  --check-network --apply --prepare-assets
+```
+
+Six short-lived TCP probes check both directions across management plus both
+fabric links, using random temporary listening ports and source-bound sockets.
+They do not use ports 8000/29553 or load a model. TCP success is a reachability
+check, **not a RoCE bandwidth/collective qualification**; the existing startup
+preflight and GPU fabric diagnostic still validate RoCE/GIDs and collectives.
+If a download is interrupted, resume with the plan's `*.prepare.sh` on each node;
+do not rerun `--apply` over the newly created `.env`.
+
+### Addresses and model IDs
+
+Setup derives management addresses from the actual SSH connection and discovers
+exactly two pairs of RDMA interfaces on matching IPv4 networks. `/24`, adjacent
+`/30`, and `/31` links work; interface names need not match between hosts. If the
+machine has more candidate networks, specify them explicitly:
+
+```bash
+./setup.sh --worker user@worker --fabric-subnets '192.168.2.0/30 192.168.2.4/30'
+```
+
+For jump hosts, NAT or a different intended bootstrap interface, supply
+`--head-ip` and `--worker-ip`; both must identify actual addresses on their node.
+Ambiguous/missing links fail with a diagnostic rather than guessing. Generated
+`FABRIC_SUBNETS` use exact local IPv4 selectors, so each node's selector can differ.
+
+Model selection takes a Hugging Face ID plus a full commit revision, with the
+qualified target and DFlash2 revisions already supplied as defaults:
+
+```bash
+./setup.sh --worker user@worker --model-id nvidia/GLM-5.3-Flash-NVFP4
+```
+
+The helper honors the deployment user's `HF_HUB_CACHE`, legacy
+`HUGGINGFACE_HUB_CACHE`, `HF_HOME`, or `XDG_CACHE_HOME` in that order;
+otherwise it uses `~/.cache/huggingface/hub`. On the worker these must be available
+in the SSH command environment. It derives model cache roots and container snapshot
+paths from IDs/revisions, mounts the complete per-model cache read-only, and never
+copies or relocates weights. [Hugging Face cache layout](https://huggingface.co/docs/huggingface_hub/guides/manage-cache)
+explains why `blobs/` must accompany `snapshots/` to preserve tokenizer symlinks.
+The native loader still receives resolved local paths; generated `MODEL_ID` and
+revision entries record their inputs. Changing those metadata entries alone in an
+existing `.env` does not rewrite its paths. Non-default IDs/revisions require
+independent compatibility validation; setup does not qualify a different model.
+
+`--apply` refuses existing `.env` files (including dangling symlinks), modified or
+mismatching source manifests, inaccessible Docker inspection, and checkouts
+mounted by running containers. It checks both nodes before writing, then writes
+the worker and head with exclusive mode-600 creation. If the head write fails
+later, it reports the worker's already-created file; it does not delete operator
+data. For existing deployments, use the manual configuration and maintenance
+commands below; setup is not an upgrade/restart command.
+
+See [guided setup validation](GUIDED_SETUP_VALIDATION.md) for tested behavior and limits.
+
 ## Deployment
 
-These instructions are for a **fresh two-node deployment**. An existing installation does not need its `.env` recreated. The default setup is to copy and edit `.env.example`; **`scripts/configure.py` is optional**.
+These instructions are for a **fresh two-node deployment**. An existing installation does not need its `.env` recreated. Use [guided setup](#guided-setup) to generate both node configurations. The steps below describe the manual alternative using `.env.example`; **`scripts/configure.py` is optional**.
 
 ### 1. Prepare the hosts
 
-Use two compatible GB10 Linux ARM64 nodes with Docker Engine, Docker Compose v2, NVIDIA Container Toolkit, usable matching GPU drivers and working RoCE. Install Python 3, Bash, Git, SSH, `flock`, `ip`, `nvidia-smi`, `curl` and `jq` on the hosts, and the Hugging Face CLI for downloads. Install `rsync` on both hosts if you use `sync-repo.sh`. An optional upstream image build also needs access to its source submodules.
+Use two compatible GB10 Linux ARM64 nodes with Docker Engine, Docker Compose v2, NVIDIA Container Toolkit, usable matching GPU drivers and working RoCE. Install Python 3.9+, Bash, Git, SSH, `flock`, `ip`, `nvidia-smi`, `curl` and `jq` on the hosts, and the Hugging Face CLI for downloads. Install `rsync` on both hosts if you use `sync-repo.sh`. An optional upstream image build also needs access to its source submodules.
 
 Make both nodes headless as described under [headless display memory](#kv-capacity-and-headless-display-memory), and verify [DRM modesetting](#drm-modesetting) on both nodes. Review [host OOM daemons](#host-oom-daemons) before an initial checkpoint load. Configure two RoCE fabric links with static IPv4 addresses, MTU 9000 and valid RoCE v2 GIDs. Configure passwordless SSH from the head to the worker. Leave both GPUs idle before the first start.
 
@@ -232,7 +369,7 @@ The example network throughout this guide is:
 | First RoCE fabric | `10.20.0.1` | `10.20.0.2` |
 | Second RoCE fabric | `10.21.0.1` | `10.21.0.2` |
 
-Replace those example addresses with your actual network. Both nodes must reach the head's master port and communicate across both fabric networks. Allow client access to the head's port 8000.
+Replace those example addresses with your actual network. Both nodes must communicate across the management and fabric networks, including dynamically chosen internal ports; use the [peer-scoped firewall plan](#review-first-including-firewalls) when a firewall is enabled. Allow trusted client access to the head's port 8000.
 
 ### 2. Obtain this deployment on both nodes
 
