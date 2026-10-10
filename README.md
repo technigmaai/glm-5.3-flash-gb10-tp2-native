@@ -68,25 +68,37 @@ pinned model downloads, device access and node settings. See
 [first-boot troubleshooting](docs/DEPLOYMENT.md#troubleshooting-first-boot) for
 DRM modesetting, host OOM daemons, model-cache mounts and startup failures.
 
-On **both nodes**:
+For a **fresh installation**, clone this repo on both nodes. Then run from the head:
 
 ```bash
-git clone https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native.git
-cd glm-5.3-flash-gb10-tp2-native
-docker pull technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130
-cp .env.example .env
-chmod 600 .env
+./setup.sh --worker user@worker --apply --prepare-assets --check-network
 ```
 
-Edit `.env` for each node's role/rank, addresses, fabric prefixes, SSH target and
-absolute paths. Download the pinned target and draft models into each user's
-default Hugging Face cache as described in the guide. `scripts/configure.py` is optional.
+This discovers node addresses, the two RoCE links, each user's Hugging Face cache
+and DRM group. It writes both node configurations, pulls the image and downloads
+(or reuses) the pinned models. C4 / 8 GiB is the default; add `--profile c6` for C6.
+Use `--worker-dir /absolute/checkout` if the worker's checkout path differs.
+No container starts until you run `./start.sh --approved`.
+
+**Firewall enabled?** First run `./setup.sh --worker user@worker` without `--apply`.
+It creates a private plan and peer-scoped UFW scripts for review; it never changes
+the firewall automatically. Follow [guided setup](docs/DEPLOYMENT.md#guided-setup)
+to apply those rules and check both directions before loading the model.
+
+The model input is `nvidia/GLM-5.3-Flash-NVFP4` plus its pinned revision. Setup
+finds the cache; vLLM loads both models by HF ID and pinned revision, offline.
+`/v1/models` reports the target ID in `root`. You do not need checkpoint paths
+or to move model files. Existing installations keep their `.env`:
+setup refuses to overwrite it. [Manual setup](docs/DEPLOYMENT.md#deployment)
+remains available through `.env.example`.
 
 `FABRIC_SUBNETS` accepts IPv4 CIDRs (including adjacent `/30` networks), existing
 dotted prefixes, or exact local IPs. Each selector identifies one distinct RoCE port.
 
 The image supplies the runtime; **this repository supplies the native entrypoint
-and overlays through Compose bind mounts**. Use the complete recipe when starting
+and overlays through Compose bind mounts**. The launchers automatically select
+`compose.models-hf.yaml` for ID-based loading or `compose.models-local.yaml`
+for explicit paths. Use the complete recipe when starting
 it. Replies have no fixed deployment output-token cap: omit `max_tokens` and
 `max_completion_tokens` in client requests to use the remaining context budget.
 Clients may still impose their own limits, and the model may stop earlier.

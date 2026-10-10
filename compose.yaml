@@ -20,7 +20,11 @@ services:
       CUDAGRAPH_CAPTURE_SIZES: ""
       CUDAGRAPH_METRICS: ""
       DECODE_RESERVE_TOKENS: ""
-      DFLASH_MODEL: "${DFLASH_MODEL:?Set DFLASH_MODEL in .env}"
+      DFLASH_MODEL: "${DFLASH_MODEL:-}"
+      MODEL_ID: "${MODEL_ID:-}"
+      MODEL_REVISION: "${MODEL_REVISION:-}"
+      DRAFT_ID: "${DRAFT_ID:-}"
+      DRAFT_REVISION: "${DRAFT_REVISION:-}"
       EXTRA_ARGS: "--mm-processor-cache-gb ${MM_PROCESSOR_CACHE_GB:-1} --scheduler-cls vllm.v1.core.sched.adaptive_k.AdaptiveKScheduler --served-model-name ${MODEL_ALIASES:-glm53 nvidia/GLM-5.3-Flash-NVFP4}"
       FABRIC_CHECK: ""
       FABRIC_SUBNETS: "${FABRIC_SUBNETS:?Set FABRIC_SUBNETS in .env}"
@@ -39,7 +43,7 @@ services:
       MAX_NUM_BATCHED_TOKENS: "${MAX_NUM_BATCHED_TOKENS:-4096}"
       MAX_NUM_SEQS: "${MAX_NUM_SEQS:-4}"
       MCP_LOG_DIR: "/logs"
-      MODEL_DIR: "${MODEL_DIR:?Set MODEL_DIR in .env}"
+      MODEL_DIR: "${MODEL_DIR:-}"
       MOE_BACKEND: ""
       MTP: ""
       NCCL_DEBUG: ""
@@ -131,22 +135,8 @@ services:
     volumes:
       -
         type: "bind"
-        source: "${MODEL_HOST_DIR:?Set MODEL_HOST_DIR in .env}"
-        target: "/models/glm-5.3-flash-nvfp4"
-        read_only: true
-        bind:
-          create_host_path: false
-      -
-        type: "bind"
         source: "/run/systemd/units"
         target: "/host/systemd-units"
-        read_only: true
-        bind:
-          create_host_path: false
-      -
-        type: "bind"
-        source: "${DFLASH_HOST_DIR:?Set DFLASH_HOST_DIR in .env}"
-        target: "/models/glm-5.3-flash-dflash2"
         read_only: true
         bind:
           create_host_path: false
@@ -432,6 +422,12 @@ services:
         type: "bind"
         source: "${SNAPSHOT_SEED_DIR:?Set SNAPSHOT_SEED_DIR in .env}"
         target: "/weight-snapshot-seed"
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/scripts/model_source.py"
+        target: /usr/local/lib/python3.12/dist-packages/vllm/model_executor/model_loader/model_source.py
         read_only: true
         bind:
           create_host_path: false

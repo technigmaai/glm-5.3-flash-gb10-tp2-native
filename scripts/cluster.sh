@@ -5,7 +5,9 @@ cd "$DEPLOY"
 [[ -f .env ]] || { echo 'Copy .env.example to .env and configure this node first.' >&2; exit 1; }
 set -a; source .env; set +a
 PROJECT_NAME=${PROJECT_NAME:-glm53-native}
-compose() { docker compose --env-file "$DEPLOY/.env" -p "$PROJECT_NAME" -f "$DEPLOY/compose.yaml" "$@"; }
+MODEL_COMPOSE=compose.models-local.yaml
+[[ -z ${MODEL_ID:-} ]] || MODEL_COMPOSE=compose.models-hf.yaml
+compose() { docker compose --env-file "$DEPLOY/.env" -p "$PROJECT_NAME" -f "$DEPLOY/compose.yaml" -f "$DEPLOY/$MODEL_COMPOSE" "$@"; }
 head_only() { [[ ${ROLE:?} == head ]] || { echo 'Run this on the configured head node.' >&2; exit 1; }; }
 peer() { ssh -o BatchMode=yes -o ConnectTimeout=10 "${PEER_SSH:?Set PEER_SSH}" "$@"; }
 peer_cluster() {

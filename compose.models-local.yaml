@@ -1,0 +1,16 @@
+# Compatibility for explicit snapshot paths and flat checkpoint directories.
+services:
+  glm53:
+    volumes:
+      - type: bind
+        source: "${MODEL_HOST_DIR:?Set MODEL_HOST_DIR in .env}"
+        target: /models/glm-5.3-flash-nvfp4
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "${DFLASH_HOST_DIR:?Set DFLASH_HOST_DIR in .env}"
+        target: /models/glm-5.3-flash-dflash2
+        read_only: true
+        bind:
+          create_host_path: false

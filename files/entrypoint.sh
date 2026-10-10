@@ -105,6 +105,17 @@ fi
 NATIVE_DRY_RUN="${GLM53_NATIVE_DRY_RUN:-0}"
 
 MODEL="${MODEL_DIR:-/models/glm-5.3-flash-nvfp4}"
+MODEL_REVISION_ARGS=()
+if [[ -n ${MODEL_ID:-} ]]; then
+  MODEL=$(python3 /deployment/scripts/model_source.py target) || exit 1
+  MODEL_REVISION_ARGS=(--revision "${MODEL_REVISION:?Set MODEL_REVISION}")
+fi
+# Local directory for filesystem checks; the serving identity remains the HF ID.
+SERVE_MODEL="${MODEL_ID:-$MODEL}"
+if [[ -n ${DRAFT_ID:-} ]]; then
+  [[ -n ${MODEL_ID:-} ]] || { echo "FATAL: DRAFT_ID requires HF MODEL_ID mode" >&2; exit 1; }
+  DFLASH_MODEL=$(python3 /deployment/scripts/model_source.py draft) || exit 1
+fi
 SERVED="${SERVED_NAME:-glm53}"
 
 # --- cluster networking: everything rides the ConnectX link -----------------
@@ -342,7 +353,7 @@ PY
     || row "page cache" "${cached} GiB cached, ${memfree} GiB free, ~${need} GiB needed (GPU allocations may fail: on the host, sync; echo 3 | sudo tee /proc/sys/vm/drop_caches)" WARN
   swap=$(( ( $(awk '/SwapTotal/ {print $2}' /proc/meminfo) - $(awk '/SwapFree/ {print $2}' /proc/meminfo) ) >> 20 ))
   (( swap < 1 )) || row "swap in use" "${swap} GiB (the GPU shares this memory; paging stalls it)" WARN
-  fs=$(findmnt -n -o FSTYPE -T "${MODEL_DIR:-/models/glm-5.3-flash-nvfp4}" 2>/dev/null)
+  fs=$(findmnt -n -o FSTYPE -T "$MODEL" 2>/dev/null)
   [[ $fs == nfs* || $fs == cifs || $fs == fuse* ]] && row "model filesystem" "$fs (every rank reads it all; use local disk)" WARN \
     || row "model filesystem" "${fs:-unknown}" ok
   # The first boot at a TP size writes a weight snapshot (snapshot.yaml).
@@ -602,7 +613,7 @@ case "$SPEC_METHOD" in
       echo "Mount the DFlash2 drafter there on every node, or set SPEC_METHOD=mtp." >&2
       exit 1
     fi
-    SPEC=(--speculative-config "{\"method\":\"dflash\",\"model\":\"${DFLASH_MODEL}\",\"num_speculative_tokens\":${SPEC_TOKENS}}") ;;
+    SPEC=(--speculative-config "$(python3 -c 'import json,sys; s={"method":"dflash","model":sys.argv[1],"num_speculative_tokens":int(sys.argv[2])}; s.update({"revision":sys.argv[3]} if sys.argv[3] else {}); print(json.dumps(s))' "${DRAFT_ID:-$DFLASH_MODEL}" "$SPEC_TOKENS" "${DRAFT_ID:+${DRAFT_REVISION:-}}")") ;;
   mtp)
     SPEC_TOKENS="${SPEC_TOKENS:-4}"
     SPEC=(--speculative-config "{\"method\":\"mtp\",\"num_speculative_tokens\":${SPEC_TOKENS}}") ;;
@@ -631,7 +642,7 @@ if [[ -n "${SPEC_EXTRA:-}" ]]; then
 import json, sys
 spec, extra = json.loads(sys.argv[1]), json.loads(sys.argv[2])
 if not isinstance(extra, dict): sys.exit("SPEC_EXTRA must be a JSON object")
-fixed = sorted(set(extra) & {"method", "model", "num_speculative_tokens"})
+fixed = sorted(set(extra) & {"method", "model", "num_speculative_tokens", "revision"})
 if fixed: sys.exit("SPEC_EXTRA must not set " + ", ".join(fixed) + ": use SPEC_METHOD, DFLASH_MODEL and SPEC_TOKENS")
 n = spec["num_speculative_tokens"]
 for row in extra.get("num_speculative_tokens_per_batch_size", []): row[2] = min(row[2], n)
@@ -834,7 +845,7 @@ if [[ "$ROLE" == head ]]; then
 else
   NET=(--headless)
 fi
-CMD=(vllm serve "$MODEL" \
+CMD=(vllm serve "$SERVE_MODEL" "${MODEL_REVISION_ARGS[@]}" \
   --served-model-name "$SERVED" \
   --tensor-parallel-size "$TP" \
   --distributed-executor-backend mp \
