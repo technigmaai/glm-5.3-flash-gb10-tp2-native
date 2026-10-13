@@ -59,6 +59,13 @@ installation using 7.2 GiB; it does not qualify our 8 GiB profile.
 Large prefills may queue under the token budget; slots do not guarantee that
 all submitted requests run at once. See [profile details](docs/DEPLOYMENT.md#choose-c4-or-c6).
 
+ARX two-shot is disabled by default to mitigate the stale-value race reported
+in [issue #6](https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native/issues/6).
+Keep `VLLM_ARX_TWO_SHOT_MAX_KB=0` in both nodes' `.env`. After deploying and
+validating the upstream fix, the previous `2048` KiB limit can be restored
+through `.env` and container recreation; the setting remains configurable.
+See [ARX two-shot configuration](docs/DEPLOYMENT.md#arx-two-shot).
+
 ## Deployment
 
 Prepare two headless Linux ARM64 GB10 hosts with Docker, Compose v2, the NVIDIA

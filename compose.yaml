@@ -84,7 +84,7 @@ services:
       VLLM_ARXBIG_AG: "0"
       VLLM_ARXBIG_RS: "1"
       VLLM_ARX_ALLREDUCE: "1"
-      VLLM_ARX_TWO_SHOT_MAX_KB: "2048"
+      VLLM_ARX_TWO_SHOT_MAX_KB: "${VLLM_ARX_TWO_SHOT_MAX_KB:-0}"
       VLLM_DENSE_FP8: "1"
       VLLM_DENSE_FP8_LM_HEAD: "1"
       VLLM_DENSE_W4: "in_proj_qkvbfg_a$$|^model\\.|self_attn\\.o_proj$$|shared_experts\\.(gate_up_proj|down_proj)$$"
