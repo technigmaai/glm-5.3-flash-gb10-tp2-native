@@ -144,6 +144,37 @@ concurrency or trying 9 GiB. The earlier uncached 9 GiB C6 load used substantial
 swap. See [validation and limits](#validation-and-limits) for the
 recorded checks and limitations.
 
+### ARX two-shot
+
+`VLLM_ARX_TWO_SHOT_MAX_KB` sets the ARX two-shot all-reduce size limit in KiB.
+Compose reads it from each node's `.env` and defaults to `0` when it is absent
+or empty. `0` disables two-shot; `2048` is the previously enabled limit.
+The one-shot ARX path and other optimizations keep their existing settings.
+
+Keep this setting identical on both nodes:
+
+```dotenv
+VLLM_ARX_TWO_SHOT_MAX_KB=0
+```
+
+The default mitigates [issue #6](https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native/issues/6):
+the vendored two-shot implementation can return stale values on certain
+ungraphed final prefill steps without an error. This configuration workaround
+does not apply the CUDA synchronization fix proposed in
+[upstream PR #92](https://github.com/kindlingai/glm-5.3-flash-gx10/pull/92).
+
+After updating the source on both nodes, preserve their private settings and
+add the line above to their existing `.env` files. Run `./check.sh` and
+`./restart.sh --approved` from the head, wait for API readiness, then run
+`./verify.sh`. The cluster restart workflow recreates both containers; a plain
+Docker restart retains their previous environment.
+
+Keep the configuration switch after integrating the upstream fix. Only after
+the fixed sources are deployed and the targeted race regression and deployment
+checks pass should an operator restore `VLLM_ARX_TWO_SHOT_MAX_KB=2048` in both
+`.env` files and recreate the containers. An upstream merge alone does not
+change the running server. The workaround's performance cost is unmeasured.
+
 ### Model names
 
 The reusable configuration defaults to `glm53` and `nvidia/GLM-5.3-Flash-NVFP4`. This site's `MODEL_ALIASES` also preserves the existing client names:
