@@ -4,6 +4,13 @@ Run GLM-5.3-Flash NVFP4 across two GB10 systems, including NVIDIA DGX Spark
 and ASUS GX10, with **one container per node** and an OpenAI-compatible API
 on **port 8000**.
 
+Choose a fixed runtime version using the separate [launchers/](launchers/README.md)
+folder. Six consecutive releases, **v0.1.0–v0.6.0**, select the original runtime
+and its experimental successors with matching source overlays. See
+[VERSIONS.md](VERSIONS.md) for each release's contents, pins and validation limits.
+For example, pull `technigmaai/glm-5.3-flash-gb10-tp2-native:v0.6.0` on both
+configured nodes, then run `./launchers/v0.6.0.sh --approved` on the head.
+
 [Docker Hub](https://hub.docker.com/r/technigmaai/glm-5.3-flash-gb10-tp2-native)
 · [Full setup guide](docs/DEPLOYMENT.md#deployment)
 · [Validation summary](manifests/validation-summary.json)
@@ -38,7 +45,7 @@ KV pool.
 | **4,096 / C4** | 4,096 | 4 | 8 GiB |
 | **6,144 / C6** | 6,144 | 6 | 8 GiB |
 
-C6 is the current installation's active profile; C4 is the conservative
+C6 is the original runtime's recorded serving profile; C4 is the conservative
 fresh-install default. Set these values identically in **both nodes' `.env`**:
 
 ```dotenv
@@ -120,7 +127,7 @@ and [client settings](docs/DEPLOYMENT.md#tool-continuation-reasoning).
 After both nodes are configured and their models are ready, run from the head:
 
 ```bash
-./check.sh
+./check.sh --profile v0.1.0
 ./start.sh --approved
 ./status.sh
 # Wait for API health and the startup self-test, then:
@@ -130,7 +137,7 @@ After both nodes are configured and their models are ready, run from the head:
 ## Operations
 
 ```bash
-./check.sh
+./check.sh --profile v0.1.0
 ./status.sh
 ./tail-log.sh head --tail 80
 ./tail-log.sh worker --tail 80

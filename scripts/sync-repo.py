@@ -31,7 +31,8 @@ def tracked_source(names):
     for name in names:
         p = Path(name)
         if (p.is_absolute() or '..' in p.parts or p.name.startswith('.env') and p.name != '.env.example'
-                or any(part in {'.git', 'site', 'logs', 'experiments', 'backups', 'reports', 'models', 'cache', '__pycache__'} for part in p.parts)):
+                or any(part in {'.git', '__pycache__'} for part in p.parts)
+                or p.parts[0] in {'site', 'logs', 'experiments', 'backups', 'reports', 'models', 'cache'}):
             continue
         result.append(name)
     return result

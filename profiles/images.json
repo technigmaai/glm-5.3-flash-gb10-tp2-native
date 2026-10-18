@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "inventory_date": "2026-10-18",
+  "profiles": {
+    "v0.1.0": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0",
+      "description": "Published original native runtime",
+      "compose": "profiles/v0.1.0.compose.json",
+      "source_layers": [],
+      "availability": "Published on Docker Hub for linux/arm64",
+      "index_digest": "sha256:46afd8bba26106aa7ea6e00f6fd4bd3ba3d0c7c49e86af85f269eb2c88c71fa5",
+      "platform_digest": "sha256:686a5fd8e97add30aad756aa788e8a1fac82e4e64de047eb1e45f4ab85799985",
+      "config_digest": "sha256:605782691a204657908d91df54e20ef4972827749fedc022ac01d865926bd020"
+    },
+    "v0.2.0": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.2.0",
+      "description": "Preserved PR92 baseline",
+      "compose": "profiles/v0.2.0.compose.json",
+      "source_layers": [
+        "pr92"
+      ],
+      "availability": "Published on Docker Hub for linux/arm64",
+      "index_digest": "sha256:64cc178421951ca5a6613e13e44f36560c6f4aa49f776c79e2ef6d2e2a99874b",
+      "platform_digest": "sha256:a059afbdbc6765dc5a47a6ef03f97d260fbe8a481585cd95af46553e68209900",
+      "config_digest": "sha256:52ad3e6612cef052bb9c440615743ec45d2902a0464f41d7ac5ec9f12e8237a3"
+    },
+    "v0.3.0": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.3.0",
+      "description": "Six-patch experiment",
+      "compose": "profiles/v0.3.0.compose.json",
+      "source_layers": [
+        "pr92",
+        "sixpatch"
+      ],
+      "availability": "Published on Docker Hub for linux/arm64",
+      "index_digest": "sha256:a436d5b40d7bdd0356e40a48ddefd445314daa3e0a7e2387e0aaafa672ff3c34",
+      "platform_digest": "sha256:ffd4f332a431842fc8551b0ff7facc4de584e18124a9a9d865848b4059706698",
+      "config_digest": "sha256:cd734d9d316d42c7061cfc8ba4715a7ed3b1390d0f909336471621dd012df5bb"
+    },
+    "v0.4.0": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.4.0",
+      "description": "Six patches plus vLLM PR60654",
+      "compose": "profiles/v0.4.0.compose.json",
+      "source_layers": [
+        "pr92",
+        "sixpatch"
+      ],
+      "availability": "Published on Docker Hub for linux/arm64",
+      "index_digest": "sha256:c94c95f151a9e747a7f3321d42e9c049ba78bce4067bdf98e6a39ea190e7104c",
+      "platform_digest": "sha256:67685a11c084fe6a87999cc980befc940b36a6b2e49275e6f406b199fc40276e",
+      "config_digest": "sha256:013a0d1556f2ba0db1a62eb176895a17e380ba07fe8853167a1ba1e325d3c9f1"
+    },
+    "v0.5.0": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.5.0",
+      "description": "PR60654 plus Kindling PR94 and vLLM PR61174/61996",
+      "compose": "profiles/v0.5.0.compose.json",
+      "source_layers": [
+        "pr92",
+        "sixpatch",
+        "trio"
+      ],
+      "availability": "Published on Docker Hub for linux/arm64",
+      "index_digest": "sha256:17f2bab8f3220eb115288471d7aecac19ffd7f60f0b75adcd305150634e22e72",
+      "platform_digest": "sha256:fef79e59b27127f370a32b3f8ddd91f7b454c002382efee5e186d6e24a9fe709",
+      "config_digest": "sha256:e8be837c222e531b4a0aa1240db63f49ae8419293f05cd81bafd9c4b3d44c965"
+    },
+    "v0.6.0": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.6.0",
+      "description": "Trio plus PR61161/61451 and PR60945 safety equivalent",
+      "compose": "profiles/v0.6.0.compose.json",
+      "source_layers": [
+        "pr92",
+        "sixpatch",
+        "trio",
+        "sampling"
+      ],
+      "availability": "Published on Docker Hub for linux/arm64",
+      "index_digest": "sha256:da020a406cb2f6699b9ceef35dd5b7d0e760eb7b2601809596e9842f7ba719ce",
+      "platform_digest": "sha256:d1ae9b8edb4d42231f34270da7c84016cc5ab854bd1466b2d42b43dd00ca51e3",
+      "config_digest": "sha256:9a510cf0f844ee7c6289682ce22fd0ab75fdcee721ee744e32e0232fa31f7f22"
+    }
+  }
+}

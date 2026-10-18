@@ -22,7 +22,7 @@ compiled helper as the context:
 ```bash
 docker build -f image/display-kv/Dockerfile \
   --build-arg BASE_IMAGE=local/glm53-native:gb10-c748079-base \
-  -t technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 \
+  -t technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0 \
   files/display-kv/
 ```
 

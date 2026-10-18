@@ -1,4 +1,4 @@
-"""Exercise root commands and sync guards with fake Docker/SSH; no GPU work."""
+"""Exercise the legacy lifecycle core and source sync guards without GPU work."""
 import importlib.util
 import json
 import os
@@ -37,6 +37,12 @@ class LayoutOperations(unittest.TestCase):
         self.env = dict(os.environ, PATH=str(self.bin) + ':' + os.environ['PATH'], TRACE=str(self.trace))
 
     def run_root(self, name, *args):
+        # The public lifecycle wrappers now use profilectl.py. Keep coverage of
+        # the retained low-level cluster implementation independently.
+        if name in ('start.sh', 'stop.sh', 'restart.sh', 'status.sh'):
+            return subprocess.run(['bash', str(self.root / 'scripts/cluster.sh'),
+                                   name[:-3], *args], cwd='/', env=self.env,
+                                  capture_output=True, text=True)
         return subprocess.run(['bash', str(self.root / name), *args], cwd='/', env=self.env, capture_output=True, text=True)
 
     def calls(self):
@@ -91,6 +97,10 @@ class LayoutOperations(unittest.TestCase):
                  'experiments/report.json', 'backups/private.tar', 'models/weights', '../escape',
                  'README.md', 'files/entrypoint.sh', '.gitignore']
         self.assertEqual(sync.tracked_source(names), ['.env.example', 'README.md', 'files/entrypoint.sh', '.gitignore'])
+
+    def test_sync_keeps_model_source_inside_profile_patches(self):
+        name = 'profiles/patches/trio/vllm/model_executor/models/diffusion_gemma.py'
+        self.assertEqual(sync.tracked_source([name, 'models/weights']), [name])
 
     def test_manifest_refresh_ignores_private_untracked_files(self):
         shutil.copy2(ROOT / 'scripts/update-manifest.py', self.root / 'scripts/update-manifest.py')

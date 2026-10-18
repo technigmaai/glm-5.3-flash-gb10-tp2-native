@@ -25,11 +25,14 @@ def cache_snapshot(hub, model_id, revision):
 
 
 def compose_command(root, settings):
+    # Imported only by host-side operations, not by the in-container loader.
+    from runtime_profiles import compose_files, env_file
     root = Path(root)
     mode = 'hf' if settings.get('MODEL_ID') else 'local'
-    return ['docker', 'compose', '--env-file', str(root / '.env'), '-p',
+    return ['docker', 'compose', '--env-file', str(env_file(root)), '-p',
             settings.get('PROJECT_NAME', 'glm53-native'), '-f', str(root / 'compose.yaml'),
-            '-f', str(root / f'compose.models-{mode}.yaml')]
+            '-f', str(root / f'compose.models-{mode}.yaml')] + [
+                arg for path in compose_files(root) for arg in ('-f', path)]
 
 
 def snapshot_fingerprint_config(model_config, checkpoint_hash):

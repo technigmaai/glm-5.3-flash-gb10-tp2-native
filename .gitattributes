@@ -1,0 +1,2 @@
+# Keep imported patch sources byte-for-byte identical to their provenance hashes.
+profiles/patches/** -whitespace

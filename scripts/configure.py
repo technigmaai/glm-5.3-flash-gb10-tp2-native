@@ -7,7 +7,7 @@ from pathlib import Path
 import shlex
 from fabric_selectors import parse_selectors
 
-IMAGE = 'technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130'
+IMAGE = 'technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0'
 
 MODEL_ID = 'nvidia/GLM-5.3-Flash-NVFP4'
 MODEL_REVISION = 'da920bb0b9f4a06727223a349e55468e38352348'
