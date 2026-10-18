@@ -134,6 +134,30 @@ class Launcher(unittest.TestCase):
         self.assertLess(title_row, option_row)
         self.assertLess(option_row, 15 - 2)
 
+    def test_standard_terminal_fits_the_ascii_name_and_nine_actions(self):
+        _, column, title_row, option_row = launcher.screen_layout(24, 80)
+        banner = launcher.wordmark(80 - column - 1, 24)
+        self.assertGreaterEqual(len(banner), 4)
+        self.assertGreaterEqual(max(map(len, banner)), 30)
+        self.assertTrue(all(line.isascii() and len(line) <= 80 - column - 1 for line in banner))
+        self.assertLess(len(banner) + 1, title_row)
+        self.assertGreaterEqual(launcher.menu_page(24, option_row, ['Example action'] * 9,
+                                                  80 - column - 1), 9)
+
+    def test_wordmark_grows_in_wide_windows_and_falls_back_on_short_screens(self):
+        normal = launcher.wordmark(42, 24)
+        wide = launcher.wordmark(80, 40)
+        self.assertGreater(len(wide), len(normal))
+        self.assertGreater(max(map(len, wide)), max(map(len, normal)))
+        self.assertFalse(launcher.wordmark(20, 40))
+        self.assertFalse(launcher.wordmark(80, 15))
+
+    def test_long_release_descriptions_keep_their_own_rows(self):
+        _, column, _, option_row = launcher.screen_layout(24, 80)
+        page = launcher.menu_page(24, option_row, ['v0.6.0 | ' + 'experiment ' * 8],
+                                  80 - column - 1)
+        self.assertLess(option_row + page - 1, 24 - 5)
+
     def test_resize_and_arrow_selection_keep_every_draw_inside_the_terminal(self):
         import curses
 

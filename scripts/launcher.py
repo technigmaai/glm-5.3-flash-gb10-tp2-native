@@ -24,14 +24,34 @@ def logo(width):
     return tuple(path.read_text(encoding='ascii').strip('\n').splitlines())
 
 
+def wordmark(width, height):
+    for font in ('standard', 'small', 'mini'):
+        path = ROOT / 'files/branding' / f'wordmark-{font}.txt'
+        art = tuple(path.read_text(encoding='ascii').strip('\n').splitlines())
+        # Leave space for the tagline, nine actions and keyboard hints.
+        if max(map(len, art)) <= width and height >= len(art) + 18:
+            return art
+    return ()
+
+
 def screen_layout(height, width):
     # Put the image beside the controls so a larger logo does not hide actions.
+    art, column = (), 1
     for size in (52, 44, 34):
-        art = logo(size)
-        column = max(map(len, art)) + 4
-        if height >= 20 and len(art) <= height - 3 and width - column - 2 >= 38:
-            return art, column, 6, 8
-    return (), 1, 4, 6
+        candidate = logo(size)
+        candidate_column = max(map(len, candidate)) + 4
+        if height >= 20 and len(candidate) <= height - 3 and width - candidate_column - 2 >= 38:
+            art, column = candidate, candidate_column
+            break
+    banner = wordmark(width - column - 1, height)
+    title_row = len(banner) + 3 if banner else 4
+    return art, column, title_row, title_row + 2
+
+
+def menu_page(height, option_row, options, width):
+    # Reserve description rows only when a choice needs them.
+    reserve = 6 if any(len(option) > width - 2 for option in options) else 4
+    return max(1, height - option_row - reserve)
 
 
 def parser(root=ROOT):
@@ -138,14 +158,17 @@ def _curses_choice(screen, title, options):
         if art:
             for row, text in enumerate(art, 1):
                 line(row, text, curses.A_BOLD, x=1)
-            line(1, BRAND[0], curses.A_BOLD)
-            line(2, BRAND[1])
-            line(4, BRAND[2])
+        banner = wordmark(width - column - 1, height)
+        if banner:
+            for row, text in enumerate(banner):
+                line(row, text, curses.A_BOLD)
+            line(len(banner) + 1, BRAND[1])
+            line(height - 3, BRAND[2], x=1)
         else:
             for row, text in enumerate(BRAND):
                 line(row, text, curses.A_BOLD if row == 0 else 0)
         line(title_row, title)
-        page = max(1, height - option_row - 6)
+        page = menu_page(height, option_row, options, width - column - 1)
         first = max(0, index - page + 1)
         for row, option in enumerate(options[first:first + page], option_row):
             selected = first + row - option_row == index
@@ -178,7 +201,8 @@ def choose(title, options):
             pass
         else:
             return curses.wrapper(_curses_choice, title, options)
-    print('\n' + '\n'.join(logo(44)) + '\n\n' + '\n'.join(BRAND) + '\n\n' + title)
+    print('\n' + '\n'.join(logo(44)) + '\n\n' + '\n'.join(wordmark(200, 100)) +
+          '\n\n' + '\n'.join(BRAND[1:]) + '\n\n' + title)
     for i, option in enumerate(options, 1):
         print(f'  {i}. {option}')
     while True:

@@ -13,7 +13,18 @@ for width in 34 44 52; do
 done
 ```
 
+The larger `Technigma AI` wordmark uses pre-generated FIGlet lettering. Its
+three sizes were generated on macOS with FIGlet 2.2.5:
+
+```bash
+for font in mini small standard; do
+  figlet -f "$font" -w 200 'Technigma AI' \
+    | sed 's/[[:space:]]*$//' > "wordmark-${font}.txt"
+done
+```
+
 Only the checked-in ASCII text is read by the launcher. The GB10 nodes need
-neither jp2a nor an image-processing package. The menu chooses the largest logo
-that fits beside its controls; narrow or short terminals retain the name and
-tagline with a compact layout. Resize the terminal to show a larger rendition.
+neither jp2a, FIGlet nor an image-processing package. The menu chooses a logo and
+wordmark that fit beside its controls, keeping all nine main actions visible in
+a standard 80-column, 24-row terminal. Narrow or short terminals retain the name
+and tagline with a compact layout. Resize the terminal to show larger renditions.
