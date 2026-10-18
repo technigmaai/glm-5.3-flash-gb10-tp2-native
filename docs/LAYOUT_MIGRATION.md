@@ -1,97 +1,72 @@
-# Layout migration and rollback
+# Migrate or update an existing deployment
 
-The runtime remains Kindling-derived native TP2: one container per node, with
-external model caches and the same serving settings. The root now contains
-short operator scripts and one compose.yaml; runtime files live under files/,
-implementation helpers under scripts/, image sources under image/ and integrity
-records under manifests/. No file depends on a symlink to an older deployment.
+The public entry point is now **`./launchers/launch.sh`**. The former root
+operator scripts and six per-version scripts are consolidated into one terminal
+menu with equivalent command-line actions. Runtime source remains in `files/`,
+versioned recipes in `profiles/`, and internal helpers in `scripts/`.
 
-## Recorded validation
+## Existing deployment: prepare a separate checkout
 
-On 2026-10-07, the reorganized layout passed a real two-node restart, the startup
-self-test, all four aliases, 8/8 functional checks including image and tool calls,
-and six concurrent short streams with zero preemptions. Both containers were
-healthy afterward. The 8 GiB KV pool retained 1,352,535 shared tokens; image,
-serving settings, external model/cache/log mounts and runtime source bytes matched
-the prior deployment. Existing target and draft snapshots were reused.
+1. Preserve each node's existing complete deployment folder and private settings.
+2. Clone this repository into a new directory on both hosts and use the same commit.
+3. Copy each node's own `.env` privately into its new checkout. Update `DEPLOY_ROOT`
+   for that node and `PEER_DEPLOY_DIR` for the worker's new checkout. Preserve model,
+   cache, log, snapshot, address and serving settings. Never copy head settings onto the worker.
+4. Pull the selected version tag on both nodes and run a read-only check and plan
+   from the new head checkout:
 
-The CPU suite passed 26 tests on both nodes, and source synchronization correctly
-refused the now-live deployment folders. See the
-[validation summary](../manifests/validation-summary.json) for recorded details
-and limits. A million-token workload and maximum image count/resolution remain
-untested.
+   ```bash
+   ./launchers/launch.sh check --version v0.6.0
+   ./launchers/launch.sh start --version v0.6.0 --dry-run
+   ```
 
-## Prepare while the current pair serves
+5. During the chosen interruption, apply the switch:
 
-1. Back up each COMPLETE existing deployment folder, including hidden files,
-   private .env files, ignored/untracked files and experiment evidence. Store
-   archives outside the repository, restrict their access, checksum them and
-   verify a test restore. Preserve Git history with a bundle plus a full source
-   archive; a bundle alone excludes working-tree files.
-2. Clone this same GitHub repository into a new folder on both hosts. Preserve
-   its origin/history and check out the same tested layout commit.
-3. Copy each node's own .env privately into its new checkout. Change DEPLOY_ROOT
-   to that node's new folder and PEER_DEPLOY_DIR to the worker's new folder.
-   Keep the actual installed image tag, model paths, external caches/logs,
-   snapshot seed, ranks, API aliases and serving values. Do not overwrite the
-   worker's .env with the head's.
-4. Run ./check.sh on both nodes and render configuration with
-   ./scripts/cluster.sh config. Compare the new configuration with the old:
-   serving values, devices, ports, image contents, model/cache/log mounts and
-   runtime overlay bytes should match. Source paths and the relocated
-   entrypoint/healthcheck locations are intentional differences.
-5. Keep the new checkout staged until cutover. With the same names/ports/GPU
-   resources it cannot serve alongside the old pair. Idle-resource preflight
-   is for stopped ranks; do not run it against an intentionally live model.
+   ```bash
+   ./launchers/launch.sh start --version v0.6.0 --approved
+   ./launchers/launch.sh status
+   ```
 
-The CPU-only regression suite is `python3 -m unittest discover -s tests -v`.
-`sync-repo.sh --dry-run` and `sync-repo.sh --approved` copy tracked source only,
-never .env or Git metadata, and refuse folders mounted by running containers.
-Prefer matching Git checkouts when deploying a published revision. Source sync
-has no --delete; commit/check out the same source revision separately on each
-node so Git history agrees with the files.
+The controller recognizes catalog image identities in an older native Compose
+project and recreates the pair using the selected repository recipe. It refuses
+unknown images/projects and mixed-version pairs. Cloning, checking and dry-run
+planning leave the running model pair in place. Old profile symlinks and
+machine-specific experiment folders are not dependencies of the new checkout.
 
-## Planned cutover
+The dispram variant uses a separate host allocator and the v0.4.0 image. Stop
+that variant with its own controller before changing deployment architectures.
+It is not an additional portable image release. Mentat and TensorFold deployments
+also require their own lifecycle handling.
 
-1. Stop both ranks using the OLD deployment's stop command.
-2. From the NEW head checkout, run ./start.sh --approved. The launcher checks
-   both nodes, then follows the existing native rendezvous sequence.
-3. Wait for head health, exact-key snapshot restoration and the startup self-test.
-4. Run ./status.sh and ./verify.sh. Verification submits finite alias, tool,
-   image and short concurrent requests; it does not qualify million-token use.
-5. Confirm all deployment bind-source paths point to the new folder.
+## Update a checkout already used by a running pair
 
-Existing complete compatible snapshots retain their keys. No cold conversion,
-image pull or rebuild is required merely because the source folder moved.
-No automatic watchdog or host-service change is introduced by this layout.
+Stop the pair before changing bind-mounted source. From the head:
 
-## Rollback
+```bash
+./launchers/launch.sh stop --approved
+```
 
-Stop the new pair with ./stop.sh --approved, then start the preserved OLD
-folder with its original per-node .env, image and caches. Keep that folder and
-verified archives until the migration has been accepted. If source files need
-restoration, extract the per-node archive into a separate location first and
-verify it before replacing anything.
+Then update both Git checkouts to the same revision, preserving each node's
+private settings, and Check/Start the chosen version again. Do not reset or
+overwrite local configuration or uncommitted source to force an update.
 
-If a published Git change needs reversal, use a normal git revert. Preserve
-history; do not force-push or publish private backups. Never delete model
-weights, caches, images or evidence as part of a source-layout rollback.
+The optional `sync --dry-run` and `sync --approved` operations copy tracked
+source while both source folders are offline. They preserve private settings
+and Git metadata and refuse source mounted by running containers. Matching Git
+checkouts are the clearest way to deploy a published revision.
 
-## Command and path changes
+## Command migration
 
-| Previous | New |
+| Former entry point | Single launcher equivalent |
 |---|---|
-| ./cluster.sh start/stop/restart --approved | ./start.sh, ./stop.sh, ./restart.sh --approved |
-| ./cluster.sh status | ./status.sh |
-| ./cluster.sh logs | ./tail-log.sh head or worker |
-| ./cluster.sh check / verify | ./check.sh / ./verify.sh |
-| compose.json | compose.yaml |
-| entrypoint.sh, healthcheck.py | files/entrypoint.sh, files/healthcheck.py |
-| experimental/ | files/overlays/ |
-| display-kv/ | files/display-kv/; Dockerfile under image/display-kv/ |
-| manifest.json, copy-assets.json, validation-summary.json | manifests/source.json, manifests/copy-assets.json, manifests/validation-summary.json |
-| configure.py, install-assets.py | scripts/configure.py, scripts/install-assets.py (optional) |
+| `setup.sh` | `launchers/launch.sh setup` |
+| `launchers/v0.6.0.sh --approved` | `launchers/launch.sh start --version v0.6.0 --approved` |
+| `start.sh --profile v0.6.0` | `launchers/launch.sh start --version v0.6.0` |
+| `status.sh`, `stop.sh`, `restart.sh` | `launchers/launch.sh status`, `stop`, `restart` |
+| `check.sh --profile v0.6.0` | `launchers/launch.sh check --version v0.6.0` |
+| `tail-log.sh worker --tail 80` | `launchers/launch.sh logs --node worker --tail 80` |
+| `verify.sh`, `sync-repo.sh` | `launchers/launch.sh verify`, `sync` |
 
-The optional previous Mentat-stack adapter remains under scripts/legacy.sh;
-it is not needed for normal native serving or for rollback to the preserved
-native folder. Advanced internal commands remain in scripts/cluster.sh.
+Commands that change containers still accept `--approved`; Start also supports
+`--dry-run`. The menu presents the same choices interactively. For fresh
+installations, use [the deployment guide](DEPLOYMENT.md).

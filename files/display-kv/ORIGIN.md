@@ -2,7 +2,7 @@
 
 The records below describe the original R28 allocator experiment. The current
 native recipe adapts that helper to the pinned Kindling stack; see the
-[deployment guide](../../docs/DEPLOYMENT.md#kv-capacity-and-headless-display-memory)
+[deployment guide](../../docs/REFERENCE.md#kv-capacity-and-headless-display-memory)
 and [source manifest](../../manifests/source.json) for the current image and
 integration. The R28 base below is historical, not a setup requirement.
 

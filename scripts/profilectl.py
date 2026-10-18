@@ -220,7 +220,7 @@ class Controller:
             for role, step, v in steps:
                 print(f'{role}: {step} {v}', flush=True)
                 self.invoke(role, step, v)
-            print('Stopped both ranks.' if action == 'stop' else 'Launching ' + target + '. Run ./status.sh to check readiness.')
+            print('Stopped both ranks.' if action == 'stop' else 'Launching ' + target + '. Run ./launchers/launch.sh status to check readiness.')
 
 
 def mutate(node, action, version):

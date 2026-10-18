@@ -235,15 +235,16 @@ def apply_plan(data):
         raise ValueError(f'Worker settings created at {created["created"]}; head write failed: {error}. No container was started') from error
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__)
+def build_parser(versioned=False, **kwargs):
+    p = argparse.ArgumentParser(description=__doc__, **kwargs)
     p.add_argument('--worker', help='SSH hostname or user@host (passwordless SSH required)')
     p.add_argument('--worker-dir', help='Absolute path of the same checkout on the worker; defaults to the head path')
     p.add_argument('--head-ip', help='Override the head IPv4 discovered from the SSH connection')
     p.add_argument('--worker-ip', help='Override the worker IPv4 discovered from the SSH connection')
     p.add_argument('--fabric-subnets', help='Optional two space-separated selectors; otherwise discovers shared RDMA networks')
-    p.add_argument('--profile', choices=('c4', 'c6'), default='c4')
-    p.add_argument('--image', default=IMAGE)
+    p.add_argument('--serving-profile' if versioned else '--profile', dest='profile', choices=('c4', 'c6'), default='c4')
+    if not versioned:
+        p.add_argument('--image', default=IMAGE)
     p.add_argument('--model-id', default=MODEL_ID)
     p.add_argument('--model-revision', default=MODEL_REVISION)
     p.add_argument('--draft-id', default=DRAFT_ID)
@@ -252,7 +253,12 @@ def main():
     p.add_argument('--apply', action='store_true', help='Create fresh .env settings on both nodes; refuses existing settings/live mounts')
     p.add_argument('--prepare-assets', action='store_true', help='With --apply, pull the image and download/reuse the pinned models on both nodes')
     p.add_argument('--check-network', action='store_true', help='Test temporary TCP listeners in both directions on all three link pairs')
-    a = p.parse_args()
+    return p
+
+
+def main(argv=None):
+    p = build_parser()
+    a = p.parse_args(argv)
     try:
         if a.prepare_assets and not a.apply:
             raise ValueError('--prepare-assets requires --apply for a fresh setup; use the generated *.prepare.sh to resume downloads')
@@ -305,7 +311,7 @@ def main():
             else:
                 print('Prepare assets: bash ' + shlex.quote(str(path / 'head.prepare.sh')))
                 print('Worker assets: ' + shlex.join(['ssh', a.worker, 'bash -s']) + ' < ' + shlex.quote(str(path / 'worker.prepare.sh')))
-            print('When both downloads finish, run ./check.sh and ./start.sh --approved.')
+            print('When both downloads finish, run ./launchers/launch.sh and select Check, then Start for the chosen image version.')
         else:
             print('Plan only: no deployment settings, firewall, model files or containers were changed.')
             print('Re-run with --apply to create fresh settings; add --check-network after reviewing firewall access.')

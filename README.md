@@ -1,198 +1,99 @@
-# GLM-5.3-Flash on 2× NVIDIA GB10 — native TP2
+# GLM-5.3-Flash on two NVIDIA GB10 nodes
 
-Run GLM-5.3-Flash NVFP4 across two GB10 systems, including NVIDIA DGX Spark
-and ASUS GX10, with **one container per node** and an OpenAI-compatible API
-on **port 8000**.
+**Technigma AI** · DECODE. AUTOMATE. EVOLVE.
 
-Choose a fixed runtime version using the separate [launchers/](launchers/README.md)
-folder. Six consecutive releases, **v0.1.0–v0.6.0**, select the original runtime
-and its experimental successors with matching source overlays. See
-[VERSIONS.md](VERSIONS.md) for each release's contents, pins and validation limits.
-For example, pull `technigmaai/glm-5.3-flash-gb10-tp2-native:v0.6.0` on both
-configured nodes, then run `./launchers/v0.6.0.sh --approved` on the head.
+Run GLM-5.3-Flash NVFP4 on two Linux ARM64 GB10 systems, such as NVIDIA DGX Spark
+or ASUS GX10. Native vLLM TP2 uses **one model container per node** and serves an
+OpenAI-compatible API from the head on port **8000**.
 
-[Docker Hub](https://hub.docker.com/r/technigmaai/glm-5.3-flash-gb10-tp2-native)
-· [Full setup guide](docs/DEPLOYMENT.md#deployment)
-· [Validation summary](manifests/validation-summary.json)
+[Installation](docs/DEPLOYMENT.md) · [Image versions](VERSIONS.md) ·
+[Docker Hub](https://hub.docker.com/r/technigmaai/glm-5.3-flash-gb10-tp2-native) ·
+[Documentation](docs/README.md)
 
-Derived from [Kindling AI's GLM recipe](https://github.com/kindlingai/glm-5.3-flash-gx10/tree/c748079d45e6e070b2acb108a91edfe52f4a7747).
-It retains the GB10 optimizations, DFlash2 speculation, adaptive-k, RecoverSSM
-and weight snapshots, uses native vLLM multiprocessing, and adds display-backed
-KV memory for headless hosts.
+## One launcher
 
-## Architecture
+```bash
+./launchers/launch.sh
+```
 
-**Two containers total:**
+Use **Up/Down** and **Enter** to choose an operation and image version. The menu
+includes setup, start/switch, status, restart, stop, checks and logs. It runs in
+your terminal over SSH; no browser or graphical desktop is required.
 
-| Node | Container | Role |
+The same file supports explicit commands:
+
+```bash
+./launchers/launch.sh list
+./launchers/launch.sh start --version v0.1.0 --dry-run
+./launchers/launch.sh start --version v0.1.0 --approved
+./launchers/launch.sh status
+```
+
+Configure both nodes before starting. Follow the [installation guide](docs/DEPLOYMENT.md)
+for host preparation, model downloads and the complete first-run sequence.
+
+## Choose an image
+
+All tags below use `technigmaai/glm-5.3-flash-gb10-tp2-native:<version>`.
+Version numbers are consecutive release identifiers, independent of patch counts.
+
+| Version | What changes | Role |
 |---|---|---|
-| Head | `glm53-native` | API on port 8000 and TP rank 0 |
-| Worker | `glm53-native` | Headless TP rank 1 |
+| [v0.1.0](VERSIONS.md#v010) | Original native TP2 runtime | Original baseline |
+| [v0.2.0](VERSIONS.md#v020) | ARX synchronization fix | Patched baseline |
+| [v0.3.0](VERSIONS.md#v030) | Collective counters, tool streaming, attention and draft-graph changes | Experiment |
+| [v0.4.0](VERSIONS.md#v040) | MLA prefill workspace lifetime | Experiment |
+| [v0.5.0](VERSIONS.md#v050) | Relay failure handling, block-table cleanup and sampler changes | Experiment |
+| [v0.6.0](VERSIONS.md#v060) | Speculative sampling randomness and verification fixes | Experiment; operator's running image observed 2026-10-18 |
 
-TP2 communication runs over RoCE. There is no running Mentat or Ray service.
-The status helper runs inside each model container. Models stay in each user's
-Hugging Face cache and are mounted read-only; weights are not included in the
-image.
+Use v0.1.0 to reproduce the documented original runtime. v0.6.0 identifies the
+operator's observed running image; it is not a claim of production qualification
+or a performance ranking. Other releases remain available for comparison and rollback.
+Detailed changes, upstream pins and validation limits are in [VERSIONS.md](VERSIONS.md).
+Historical long-form Docker tags remain compatibility references; use the version tags above.
 
-## Serving options
+## Requirements and behavior
 
-Both profiles use a **1,047,552-token context limit**, **8 GiB logical KV per
-GPU**, and **image input**. The display-memory patch backs 1.75 GiB within each
-KV pool.
+- Two headless Linux ARM64 GB10 nodes, with Docker Engine, Compose v2 and NVIDIA Container Toolkit.
+- Working RoCE links, DRM access for display-backed KV, and passwordless SSH from head to worker.
+- The same repository revision and a separate private `.env` on each node.
+- The pinned target and DFlash2 models cached on both nodes; weights are not included in the images.
 
-| Profile | Batched tokens | Sequence slots | Default KV per GPU |
-|---|---:|---:|---:|
-| **4,096 / C4** | 4,096 | 4 | 8 GiB |
-| **6,144 / C6** | 6,144 | 6 | 8 GiB |
+Each version selects **both an image and its matching source overlays**. The
+repository supplies the native entrypoint and bind-mounted patches, so pulling
+an image alone is insufficient. Native ranks replace Mentat/Ray services.
 
-C6 is the original runtime's recorded serving profile; C4 is the conservative
-fresh-install default. Set these values identically in **both nodes' `.env`**:
+Image version and serving settings are separate choices. Fresh setup defaults to
+C4: 4,096 batched tokens, four sequence slots and 8 GiB logical KV per GPU. The
+configured context is 1,047,552 tokens. These are configuration limits, not a
+promise about arbitrary million-token accuracy or concurrent long-context capacity.
+See [serving settings](docs/DEPLOYMENT.md#serving-settings).
 
-```dotenv
-# C4: 4096 and 4; C6: 6144 and 6
-MAX_NUM_BATCHED_TOKENS=6144
-MAX_NUM_SEQS=6
-KV_CACHE_MEMORY=8589934592
-```
+## Repository map
 
-For a **fresh installation**, `.env.example` starts at **C4 with 8 GiB KV**.
-Validate that boot and inspect memory before selecting C6.
-**9 GiB remains an optional tuning profile:** set `KV_CACHE_MEMORY=9663676416`
-on both nodes. We have not observed OOM locally at 9 GiB, but that does not rule
-it out under heavier workloads. The active deployment now uses 8 GiB for more
-RAM headroom. [External feedback](docs/EXTERNAL_FEEDBACK.md) reports a different
-installation using 7.2 GiB; it does not qualify our 8 GiB profile.
+| Location | Purpose |
+|---|---|
+| [`launchers/`](launchers/README.md) | The single public operator entry point, `launch.sh` |
+| [`VERSIONS.md`](VERSIONS.md) | Human-readable release contents and validation scope |
+| [`docs/`](docs/README.md) | Installation, migration, reference material and Docker Hub overview source |
+| [`profiles/`](profiles/README.md) | Pinned images, Compose recipes and version-specific source patches |
+| `files/` | Shared runtime entrypoint, chat template and overlays |
+| `scripts/` | Internal implementation of the launcher and deployment helpers |
+| `image/`, `manifests/`, `tests/` | Image rebuild notes, source integrity records and verification |
 
-Large prefills may queue under the token budget; slots do not guarantee that
-all submitted requests run at once. See [profile details](docs/DEPLOYMENT.md#choose-c4-or-c6).
+Models, caches, logs, private settings and local experiment records stay outside
+tracked source. Launchers check both nodes before changing containers, share a
+lifecycle lock, and require explicit approval for command-line switches.
 
-ARX two-shot is disabled by default to mitigate the stale-value race reported
-in [issue #6](https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native/issues/6).
-Keep `VLLM_ARX_TWO_SHOT_MAX_KB=0` in both nodes' `.env`. After deploying and
-validating the upstream fix, the previous `2048` KiB limit can be restored
-through `.env` and container recreation; the setting remains configurable.
-See [ARX two-shot configuration](docs/DEPLOYMENT.md#arx-two-shot).
+## Validation and credits
 
-## Deployment
+The unified launcher is checked with CPU tests, Compose rendering, two-node
+configuration checks and non-mutating switch plans. Version-specific inference
+results and their limits are documented separately in [VERSIONS.md](VERSIONS.md).
+Automatic generation self-tests are disabled in versioned recipes; inference
+verification is an explicit operation.
 
-Prepare two headless Linux ARM64 GB10 hosts with Docker, Compose v2, the NVIDIA
-container runtime, working RoCE and passwordless SSH from head to worker.
-Follow the [full setup guide](docs/DEPLOYMENT.md#deployment) for host preparation,
-pinned model downloads, device access and node settings. See
-[first-boot troubleshooting](docs/DEPLOYMENT.md#troubleshooting-first-boot) for
-DRM modesetting, host OOM daemons, model-cache mounts and startup failures.
-
-For a **fresh installation**, clone this repo on both nodes. Then run from the head:
-
-```bash
-./setup.sh --worker user@worker --apply --prepare-assets --check-network
-```
-
-This discovers node addresses, the two RoCE links, each user's Hugging Face cache
-and DRM group. It writes both node configurations, pulls the image and downloads
-(or reuses) the pinned models. C4 / 8 GiB is the default; add `--profile c6` for C6.
-Use `--worker-dir /absolute/checkout` if the worker's checkout path differs.
-No container starts until you run `./start.sh --approved`.
-
-**Firewall enabled?** First run `./setup.sh --worker user@worker` without `--apply`.
-It creates a private plan and peer-scoped UFW scripts for review; it never changes
-the firewall automatically. Follow [guided setup](docs/DEPLOYMENT.md#guided-setup)
-to apply those rules and check both directions before loading the model.
-
-The model input is `nvidia/GLM-5.3-Flash-NVFP4` plus its pinned revision. Setup
-finds the cache; vLLM loads both models by HF ID and pinned revision, offline.
-`/v1/models` reports the target ID in `root`. You do not need checkpoint paths
-or to move model files. Existing installations keep their `.env`:
-setup refuses to overwrite it. [Manual setup](docs/DEPLOYMENT.md#deployment)
-remains available through `.env.example`.
-
-`FABRIC_SUBNETS` accepts IPv4 CIDRs (including adjacent `/30` networks), existing
-dotted prefixes, or exact local IPs. Each selector identifies one distinct RoCE port.
-
-The image supplies the runtime; **this repository supplies the native entrypoint
-and overlays through Compose bind mounts**. The launchers automatically select
-`compose.models-hf.yaml` for ID-based loading or `compose.models-local.yaml`
-for explicit paths. Use the complete recipe when starting
-it. Replies have no fixed deployment output-token cap: omit `max_tokens` and
-`max_completion_tokens` in client requests to use the remaining context budget.
-Clients may still impose their own limits, and the model may stop earlier.
-
-The MiaAI-derived template is tracked in [files/chat_template.jinja](files/chat_template.jinja)
-and selected by `CHAT_TEMPLATE`. Reasoning defaults to **max**. With thinking enabled,
-a short reminder after tool results requests separate reasoning before continuing.
-Disable this reminder with `chat_template_kwargs.tool_reasoning_reminder=false`;
-disabling thinking supplies an empty thinking block. See [template provenance](files/chat_template.ORIGIN.md)
-and [client settings](docs/DEPLOYMENT.md#tool-continuation-reasoning).
-
-After both nodes are configured and their models are ready, run from the head:
-
-```bash
-./check.sh --profile v0.1.0
-./start.sh --approved
-./status.sh
-# Wait for API health and the startup self-test, then:
-./verify.sh
-```
-
-## Operations
-
-```bash
-./check.sh --profile v0.1.0
-./status.sh
-./tail-log.sh head --tail 80
-./tail-log.sh worker --tail 80
-./restart.sh --approved
-./stop.sh --approved
-```
-
-The short root scripts share one implementation under `scripts/`. Each node
-keeps its own private `.env`. To synchronize source from the head while both
-deployment folders are offline, use `./sync-repo.sh --dry-run`, review it,
-then `./sync-repo.sh --approved`. Git metadata and node settings are preserved.
-Source synchronization is explicit; start does not overwrite worker files.
-
-To switch C4/C6, edit both `.env` files and restart the pair during a planned
-interruption. Changed batch sizes need matching optimized snapshots; a missing
-snapshot causes a slower initial load. No automatic watchdog is installed.
-
-See [source updates](docs/DEPLOYMENT.md#updating-an-existing-deployment) and
-[layout migration and rollback](docs/LAYOUT_MIGRATION.md) for existing
-installations. All runtime source belongs to this folder; models, caches and
-logs keep their configured external locations.
-
-## Validation and limits
-
-The current **8 GiB / C6** restart passed all four model aliases, **9/9 smoke
-checks** including image and tool calls, and **six simultaneous short streams**
-with zero preemptions. Boot reported **1,352,535 shared KV tokens (1.29× maximum
-context)**. A request with no output-token limit ended normally.
-Historical 9 GiB C4/C6 checks remain recorded separately, including the larger
-prefill test; no OOM was observed locally in those checks.
-The reorganized layout was restarted and revalidated on **2026-10-07** with
-the same results and unchanged runtime settings.
-
-Fresh tool-continuation checks passed up to **1,023,032 input tokens** with separate
-reasoning and independently verified correct plans. See [test details and limits](docs/TOOL_REASONING_VALIDATION.md).
-A DeepSeek Harness run also completed **100/100 correct rounds** through **774,863 input tokens**,
-with separate reasoning in all **98 direct tool continuations**.
-**Arbitrary million-token task accuracy remains unqualified.**
-The KV capacity is shared; six slots do not provide six simultaneous million-token
-contexts. Maximum image-count/resolution workloads are also untested. The head
-has limited free RAM; the earlier 9 GiB C6 uncached load used substantial swap.
-
-See [recorded results](manifests/validation-summary.json) and
-[validation details](docs/DEPLOYMENT.md#validation-and-limits).
-
-## Image rebuild and source maintenance
-
-The published runtime is Linux ARM64, CUDA 13.0, PyTorch 2.13 and the pinned
-Kindling/vLLM stack. Source pins, the image digest, rebuild commands and
-troubleshooting are in the [full guide](docs/DEPLOYMENT.md#image-rebuild-and-source-maintenance).
-
-## Credits and licenses
-
-Thanks to Kindling AI for the serving stack and
-[coolbho3k](https://github.com/coolbho3k/DeepSeek-v4.1-Flash-2x-DGX-Spark) for the
-display-reserved CUDA allocation technique, plus the model and runtime maintainers.
-Copied and derived files retain their applicable licenses; see
-[THIRD_PARTY.md](THIRD_PARTY.md) and the [complete credits](docs/DEPLOYMENT.md#credits-and-licenses).
+Derived from [Kindling AI's GLM recipe](https://github.com/kindlingai/glm-5.3-flash-gx10)
+and the [coolbho3k display-memory technique](https://github.com/coolbho3k/DeepSeek-v4.1-Flash-2x-DGX-Spark).
+Source notices remain in [THIRD_PARTY.md](THIRD_PARTY.md). Review the target and
+draft model licenses separately; image publication does not change their terms.

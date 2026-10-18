@@ -10,7 +10,7 @@ On 2026-10-09, a conditional tool-continuation reminder was added immediately
 before the generation prefix. It applies only with thinking enabled, a final
 structured tool message, and `tool_reasoning_reminder` not disabled. All other
 rendering retains the original template. See
-[behavior, opt-out and validation limits](../docs/DEPLOYMENT.md#tool-continuation-reasoning).
+[behavior, opt-out and validation limits](../docs/REFERENCE.md#tool-continuation-reasoning).
 
 Current SHA-256: `9cdc8d7b922d498d8d797436edfedcea1a7fbce8ed2e83c421bb8d2e7fe01781`.
 Upstream attribution and applicable terms remain with the source project.

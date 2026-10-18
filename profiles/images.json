@@ -4,7 +4,7 @@
   "profiles": {
     "v0.1.0": {
       "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0",
-      "description": "Published original native runtime",
+      "description": "Original native TP2 baseline",
       "compose": "profiles/v0.1.0.compose.json",
       "source_layers": [],
       "availability": "Published on Docker Hub for linux/arm64",
@@ -14,7 +14,7 @@
     },
     "v0.2.0": {
       "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.2.0",
-      "description": "Preserved PR92 baseline",
+      "description": "ARX synchronization fix",
       "compose": "profiles/v0.2.0.compose.json",
       "source_layers": [
         "pr92"
@@ -26,7 +26,7 @@
     },
     "v0.3.0": {
       "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.3.0",
-      "description": "Six-patch experiment",
+      "description": "Counters, tool streaming, attention and draft-graph experiment",
       "compose": "profiles/v0.3.0.compose.json",
       "source_layers": [
         "pr92",
@@ -39,7 +39,7 @@
     },
     "v0.4.0": {
       "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.4.0",
-      "description": "Six patches plus vLLM PR60654",
+      "description": "MLA prefill workspace-lifetime experiment",
       "compose": "profiles/v0.4.0.compose.json",
       "source_layers": [
         "pr92",
@@ -52,7 +52,7 @@
     },
     "v0.5.0": {
       "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.5.0",
-      "description": "PR60654 plus Kindling PR94 and vLLM PR61174/61996",
+      "description": "Relay handling, block-table and sampler experiment",
       "compose": "profiles/v0.5.0.compose.json",
       "source_layers": [
         "pr92",
@@ -66,7 +66,7 @@
     },
     "v0.6.0": {
       "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.6.0",
-      "description": "Trio plus PR61161/61451 and PR60945 safety equivalent",
+      "description": "Speculative randomness and verification experiment",
       "compose": "profiles/v0.6.0.compose.json",
       "source_layers": [
         "pr92",
