@@ -37,6 +37,9 @@ def main():
         assert Path(volume['source']).exists(), volume['source']
         if volume['target'].startswith(('/usr/local/lib/', '/opt/')) or volume['target'] == '/deployment':
             assert Path(volume['source']).resolve().is_relative_to(root), 'Source patch is outside this deployment'
+            source = Path(volume['source'])
+            if source.is_file():
+                assert str(source.relative_to(root)) in manifest['files'], 'Runtime source is missing from the tracked manifest: ' + str(source)
         if volume['target'].startswith('/models/') or volume['target'] in (HUB_MOUNT, '/weight-snapshot-seed'):
             assert volume['read_only'], 'Model and seed weights must be read-only'
     if env.get('MODEL_ID'):

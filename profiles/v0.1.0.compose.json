@@ -1,0 +1,15 @@
+{
+  "services": {
+    "glm53": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0",
+      "labels": {
+        "io.technigmaai.profile": "v0.1.0"
+      },
+      "environment": {
+        "SELF_TEST": "0",
+        "TORCH_EXTENSIONS_DIR": "/root/.cache/torch_extensions-v0.1.0",
+        "VLLM_ARX_TWO_SHOT_MAX_KB": "0"
+      }
+    }
+  }
+}

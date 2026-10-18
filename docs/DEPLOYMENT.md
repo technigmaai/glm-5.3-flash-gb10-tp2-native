@@ -1,5 +1,12 @@
 # Deployment and runtime guide
 
+This guide describes the original **v0.1.0** recipe and its recorded C4/C6
+validation. For the six versioned images, release contents and dedicated launch
+scripts, see [VERSIONS.md](../VERSIONS.md) and [launchers/](../launchers/README.md).
+Each experimental release requires its matching recipe and source overlays.
+`check.sh` now checks the selected version on both nodes; use `--all` only when
+all six images are installed on both nodes.
+
 Run GLM-5.3-Flash across two NVIDIA GB10 systems with **one model container per node**, native vLLM multiprocessing, and an OpenAI-compatible API on **port 8000**. The deployment targets Linux ARM64 systems such as NVIDIA DGX Spark and ASUS GX10, connected over RoCE. Roles, addresses, interface discovery and filesystem paths are configurable; the recipe does not depend on a particular hardware vendor or hostname.
 
 This deployment is derived from **[Kindling AI's GLM-5.3-Flash recipe](https://github.com/kindlingai/glm-5.3-flash-gx10/tree/c748079d45e6e070b2acb108a91edfe52f4a7747)**. It retains that recipe's GB10 kernels, DFlash2 speculation, RecoverSSM, adaptive scheduling and optimized weight snapshots, then replaces its Mentat orchestration with fixed native ranks. A local display-memory allocation layer backs part of the KV cache with memory reserved by the GB10 firmware for a display.
@@ -31,7 +38,7 @@ The active profile provides **six request slots**, a **1,047,552-token context l
 | Target revision | `da920bb0b9f4a06727223a349e55468e38352348` |
 | Draft checkpoint | [`incoai/GLM-5.3-Flash-DFlash2`](https://huggingface.co/incoai/GLM-5.3-Flash-DFlash2) |
 | Draft revision | `bf582e4eacc1810f76656d1811693ff6c6737d2a` |
-| Docker Hub image tag | `technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130` |
+| Docker Hub image tag | `technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0` |
 | Published registry digest | `sha256:46afd8bba26106aa7ea6e00f6fd4bd3ba3d0c7c49e86af85f269eb2c88c71fa5` |
 | Docker image ID | `sha256:46afd8bba26106aa7ea6e00f6fd4bd3ba3d0c7c49e86af85f269eb2c88c71fa5` |
 | vLLM | `0.30.1rc1.dev193+gddd6fbca1` |
@@ -437,8 +444,8 @@ For an offline installation, copy the deployment source to both nodes, omitting 
 The Linux ARM64 image is available on Docker Hub. On **both nodes**:
 
 ```bash
-docker pull technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130
-docker image inspect technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 --format '{{.Id}} {{json .RepoDigests}}'
+docker pull technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0
+docker image inspect technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0 --format '{{.Id}} {{json .RepoDigests}}'
 ```
 
 Compare the published digest in the serving-profile table. For a digest-pinned
@@ -567,7 +574,7 @@ the installed tagged image from the head instead, then repeat the comparison:
 ```bash
 # Use the published tag, rather than an @digest reference, for this transfer.
 set -o pipefail
-docker image save technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 \
+docker image save technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0 \
   | ssh "$PEER_SSH" docker image load
 ```
 
@@ -609,7 +616,7 @@ curl -fsS http://10.10.0.1:8000/health
 python3 scripts/configure.py --role head \
   --head-host 10.10.0.1 --node-ip 10.10.0.1 \
   --fabric-subnets '10.20.0. 10.21.0.' \
-  --image technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 \
+  --image technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0 \
   --peer-ssh your-user@10.20.0.2 \
   --peer-dir /absolute/path/glm-5.3-flash-gb10-tp2-native \
   --drm-gid 44
@@ -618,7 +625,7 @@ python3 scripts/configure.py --role head \
 python3 scripts/configure.py --role worker \
   --head-host 10.10.0.1 --node-ip 10.10.0.2 \
   --fabric-subnets '10.20.0. 10.21.0.' \
-  --image technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 \
+  --image technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0 \
   --drm-gid 44
 ```
 
@@ -843,14 +850,14 @@ The upstream recipe pins the nightly image, builds FlashKDA and installs its pat
 
 ```bash
 docker build -f image/display-kv/Dockerfile --build-arg BASE_IMAGE=local/glm53-native:gb10-c748079-base \
-  -t technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130 files/display-kv/
+  -t technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0 files/display-kv/
 ```
 
 The current tag has been published. For a future validated rebuild, its maintainer can publish with:
 
 ```bash
 docker login
-docker push technigmaai/glm-5.3-flash-gb10-tp2-native:c748079-displaykv1-arm64-cu130
+docker push technigmaai/glm-5.3-flash-gb10-tp2-native:v0.1.0
 ```
 
 Registry publication is separate from cluster setup; pulling or pushing an image does not restart the running containers.

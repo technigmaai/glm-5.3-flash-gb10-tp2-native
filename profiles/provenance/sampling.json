@@ -1,0 +1,89 @@
+{
+  "versions": {
+    "vllm": "0.30.1rc1.dev193+gddd6fbca1",
+    "torch": "2.13.0+cu130",
+    "flashinfer-python": "0.7.0",
+    "triton": "3.7.1"
+  },
+  "upstream": [
+    {
+      "repo": "vllm-project/vllm",
+      "pr": 61161,
+      "url": "https://github.com/vllm-project/vllm/pull/61161",
+      "head": "97b07665bc38d52772a18f546241ee8abb3302da",
+      "status": "merged",
+      "merged_at": "2026-10-15T21:46:38Z"
+    },
+    {
+      "repo": "vllm-project/vllm",
+      "pr": 61451,
+      "url": "https://github.com/vllm-project/vllm/pull/61451",
+      "head": "f76d17e3567a2b64f61c79b8f4083a5b977a28b1",
+      "status": "merged",
+      "merged_at": "2026-10-16T19:42:49Z"
+    },
+    {
+      "repo": "vllm-project/vllm",
+      "pr": 60945,
+      "url": "https://github.com/vllm-project/vllm/pull/60945",
+      "head": "ac4aeb82c2298daad1c2e1f829df49e23c07ec9a",
+      "status": "merged",
+      "merged_at": "2026-10-12T13:21:36Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "vllm/v1/worker/gpu/sample/gumbel.py",
+      "baseline_sha256": "f24793dbc02d196cb458148b42fb73b7663de55e7e6ded660ea51065b7143853",
+      "live_baseline_sha256": "f24793dbc02d196cb458148b42fb73b7663de55e7e6ded660ea51065b7143853",
+      "payload_sha256": "ee5072d245ea850ff4efa60ec548c172484019415f5d687b805d2d6af650ade1",
+      "adapted_patch": "vllm__v1__worker__gpu__sample__gumbel.py.patch",
+      "preserves_live_overlay": false,
+      "changed_by_new_prs": true
+    },
+    {
+      "path": "vllm/v1/worker/gpu/sample/watermark.py",
+      "baseline_sha256": "b66e64f8ef2a5910ad086899565b4972614a30990f0d1edfb60ab96628de5473",
+      "live_baseline_sha256": "b66e64f8ef2a5910ad086899565b4972614a30990f0d1edfb60ab96628de5473",
+      "payload_sha256": "b66e64f8ef2a5910ad086899565b4972614a30990f0d1edfb60ab96628de5473",
+      "adapted_patch": null,
+      "preserves_live_overlay": false,
+      "changed_by_new_prs": false
+    },
+    {
+      "path": "vllm/v1/worker/gpu/spec_decode/dflash2/speculator.py",
+      "baseline_sha256": "f9f5b5d2623e09fb9f16d4a2e1353c7014d6a01939563e511d9f3eeec7c8163d",
+      "live_baseline_sha256": "ec843314b099e33e666e4f9f13900ec701fc5efd642992883f757edaaa777df4",
+      "payload_sha256": "caf99a42a28f92962b2fade4d243660d4f1d3adcfa06b2df876c8a1edc8a4874",
+      "adapted_patch": "vllm__v1__worker__gpu__spec_decode__dflash2__speculator.py.patch",
+      "preserves_live_overlay": true,
+      "changed_by_new_prs": true
+    },
+    {
+      "path": "vllm/v1/worker/gpu/spec_decode/rejection_sampler.py",
+      "baseline_sha256": "c8dc8a0c9e7bc0c776798fa4d4f9f86440fa6dc65dd213d8c001d9c400a38a52",
+      "live_baseline_sha256": "b8bd5a4abb6eca114ef8b84936e933002d3f2b879048388121404c5736de1773",
+      "payload_sha256": "b8bd5a4abb6eca114ef8b84936e933002d3f2b879048388121404c5736de1773",
+      "adapted_patch": null,
+      "preserves_live_overlay": true,
+      "changed_by_new_prs": false
+    },
+    {
+      "path": "vllm/v1/worker/gpu/spec_decode/rejection_sampler_utils.py",
+      "baseline_sha256": "d9f29ad1ce4fe40a078a78b21d73fab97bbbe018775acb480c0ad14dea0c5c35",
+      "live_baseline_sha256": "d9f29ad1ce4fe40a078a78b21d73fab97bbbe018775acb480c0ad14dea0c5c35",
+      "payload_sha256": "7a00db244504ff2b4156855c98f18b66ba4c45e8a0e53657d00ca19f8f1d5d68",
+      "adapted_patch": "vllm__v1__worker__gpu__spec_decode__rejection_sampler_utils.py.patch",
+      "preserves_live_overlay": false,
+      "changed_by_new_prs": true
+    }
+  ],
+  "adaptations": [
+    "PR61161: exact shared seed helper, cached draft seeding, block acceptance seeding and DFlash2 candidate-walk seeding.",
+    "Older watermark.py has no logits_cache_ptr or cached ordinary-draft branch; its uncached/context-keyed paths remain unchanged, as upstream does when no logits cache is present.",
+    "PR61451: bounded bonus-row lookahead and both num_logits launch arguments; the bounded helper subsumes the final-row safety protection in PR60945.",
+    "Preserve local -1 placeholder early exit and all chunked rejection logic.",
+    "Bake in already-active acceptance_estimator guard and draft_trunc overlay, rather than reverting to older baked trio variants."
+  ],
+  "validation_limit": "CPU source/contract and unstarted-container audits only; not GPU numerical, sampling-distribution, long-context or performance qualification."
+}

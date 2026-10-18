@@ -1,0 +1,134 @@
+{
+  "services": {
+    "glm53": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.4.0",
+      "labels": {
+        "io.technigmaai.profile": "v0.4.0"
+      },
+      "environment": {
+        "SELF_TEST": "0",
+        "TORCH_EXTENSIONS_DIR": "/root/.cache/torch_extensions-v0.4.0",
+        "VLLM_ARX_TWO_SHOT_MAX_KB": "${VLLM_ARX_TWO_SHOT_MAX_KB:-2048}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/pr92/arx.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arx.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/distributed/device_communicators/arx_vllm.cu",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arx_vllm.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/pr92/arxbig.cu",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arxbig.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/flashinfer/kda_prefill.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/flashinfer/kda_prefill.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/parser/engine/parser_engine.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/parser/engine/parser_engine.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/parser/engine/parser_engine_config.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/parser/engine/parser_engine_config.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/parser/glm47_moe.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/parser/glm47_moe.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/v1/attention/backends/triton_attn.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/triton_attn.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/v1/attention/ops/triton_attention_helpers.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/ops/triton_attention_helpers.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/v1/attention/ops/triton_unified_attention.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/attention/ops/triton_unified_attention.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/v1/sample/ops/topk_topp_triton.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/sample/ops/topk_topp_triton.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/v1/worker/gpu/spec_decode/dflash/speculator.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/dflash/speculator.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/sixpatch/vllm/v1/worker/gpu/spec_decode/lilicorr/speculator.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/lilicorr/speculator.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "versions": {
+    "vllm": "0.30.1rc1.dev193+gddd6fbca1",
+    "torch": "2.13.0+cu130",
+    "flashinfer-python": "0.7.0",
+    "triton": "3.7.1"
+  },
+  "upstream": [
+    {
+      "repo": "kindlingai/glm-5.3-flash-gx10",
+      "pr": 94,
+      "head": "e01c5260cf4a6fe4990f5c468e07027c91b983dc",
+      "status": "merged",
+      "url": "https://github.com/kindlingai/glm-5.3-flash-gx10/pull/94"
+    },
+    {
+      "repo": "vllm-project/vllm",
+      "pr": 61174,
+      "head": "779e5a14a92f32c89ef6d09ca2d1879484e64300",
+      "status": "merged",
+      "url": "https://github.com/vllm-project/vllm/pull/61174"
+    },
+    {
+      "repo": "vllm-project/vllm",
+      "pr": 61996,
+      "head": "cf6d56f278d6711ed7e65bce9d13cf0884eff509",
+      "status": "merged",
+      "url": "https://github.com/vllm-project/vllm/pull/61996"
+    }
+  ],
+  "files": [
+    {
+      "path": "vllm/distributed/device_communicators/arx_vllm.cu",
+      "pr": 94,
+      "baseline_sha256": "4b3daa1a1fff6153da809fe1fe8cc5160a4bc31cd5ad228102b941e7a0e5d316",
+      "payload_sha256": "f1ae5decd8c0b381b2a76466083aec1c17a84d5f3b4ae51c3d0c163912c60ae6",
+      "patch": "94-0.patch"
+    },
+    {
+      "path": "vllm/distributed/device_communicators/arxbig.cu",
+      "pr": 94,
+      "baseline_sha256": "ae253770dc4edf1a24a946e2be1c4c1a7edebc603650b491ec931dab67968677",
+      "payload_sha256": "8ab28f018fca83f43018ef9b355a80117425038df0a880014c56d54d0ab5c288",
+      "patch": "94-1.patch"
+    },
+    {
+      "path": "vllm/v1/worker/gpu/block_table.py",
+      "pr": 61174,
+      "baseline_sha256": "aecbe7610071a6fab9e58122e6c83f3ca78fedd7ffa83b5b1694580c594db80f",
+      "payload_sha256": "083d9c6af7a636a66b704cc5489a7248e842125e22323c33ad6d9fdc73736f89",
+      "patch": "61174-0.patch"
+    },
+    {
+      "path": "vllm/model_executor/models/diffusion_gemma.py",
+      "pr": 61996,
+      "baseline_sha256": "32404a8beffa4cdc3f800360ea458b22bcb1513eafdadc750ca54739be627b04",
+      "payload_sha256": "bd689567b2d9cc5a5980302c29fee158a922c6a0eda78cc3a721d943aef59e59",
+      "patch": "61996-0.patch"
+    },
+    {
+      "path": "vllm/v1/sample/ops/topk_topp_sampler.py",
+      "pr": 61996,
+      "baseline_sha256": "c5c7de950e4e1380c97328057aa6a39c86e734c8b2de35beffa9695b705fbba3",
+      "payload_sha256": "48eb6133cd8ee5240f90ec7aa0ae4e0492b54b1f421ea9c40baa5d5c0a8e99f7",
+      "patch": "61996-1.patch"
+    },
+    {
+      "path": "vllm/v1/sample/ops/topk_topp_triton.py",
+      "pr": 61996,
+      "baseline_sha256": "c751e253644d762896df74727fb6726a25ed2467cd27e29a939051a87dcec008",
+      "payload_sha256": "aa4187d5d56c73348cda102db2ed87d956c6b23fb60a488e9f80b8bd4d82519e",
+      "patch": "61996-2.patch"
+    },
+    {
+      "path": "vllm/v1/watermarking/gpu_sampler.py",
+      "pr": 61996,
+      "baseline_sha256": "254eb43b8e12e8f877ca3ade731b16bb799214612d725f9aaea844cb6a348a52",
+      "payload_sha256": "a78a26254c551a41bb0461c460209405b181b85d3efabcf1da422be4f97d4444",
+      "patch": "61996-3.patch"
+    },
+    {
+      "path": "vllm/v1/worker/gpu/sample/sampler.py",
+      "pr": 61996,
+      "baseline_sha256": "ddbcdab46010bf38a5fab9b9b6a2deed2ec5e883ebfe81e83f6d22f41e546771",
+      "payload_sha256": "b18003f07c6c50ac290a9284714651788a6d91a88524bfdda9743ed77c384c7b",
+      "patch": "61996-4.patch"
+    },
+    {
+      "path": "vllm/v1/worker/gpu/sample/states.py",
+      "pr": 61996,
+      "baseline_sha256": "7dbccea6fb6e24830dafb447a43f93fd0539f33ef02f1b5bf7c2547234cbffa3",
+      "payload_sha256": "1eb8100c15ffefb45d7a71312bc5e7a508d771228f244474de0efe27c91627d8",
+      "patch": "61996-5.patch"
+    }
+  ],
+  "validation_limit": "Offline syntax/contracts plus unstarted-container source/image audits only. No GPU numerical correctness, ARX compilation or serving/performance qualification."
+}

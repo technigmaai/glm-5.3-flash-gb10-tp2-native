@@ -13,6 +13,15 @@ license remains in [files/overlays/megamoe/LICENSE](files/overlays/megamoe/LICEN
 Other upstream files retain their original notices and applicable terms;
 this repository does not relicense them as a single combined work.
 
+Version-specific copies and adaptations under `profiles/patches/` retain the
+same applicable upstream terms. PR92/93/94 originate in Kindling's repository;
+the sampler, parser, attention and speculation changes originate in
+[vllm-project/vllm](https://github.com/vllm-project/vllm), and `kda_prefill.py`
+originates in [flashinfer-ai/flashinfer](https://github.com/flashinfer-ai/flashinfer).
+Exact PR heads, payload checksums and adaptation notes are retained in
+`profiles/provenance/`. These records document
+source provenance and offline-check limits, not a new license grant.
+
 The display allocator derives from
 [coolbho3k/DeepSeek-v4.1-Flash-2x-DGX-Spark](https://github.com/coolbho3k/DeepSeek-v4.1-Flash-2x-DGX-Spark)
 at `878e0eecd893fadc69ad2d58b2df0fabb0fae2ee`. Its AGPL-3.0-only license, C source,

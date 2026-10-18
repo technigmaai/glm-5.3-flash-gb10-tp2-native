@@ -1,0 +1,44 @@
+{
+  "services": {
+    "glm53": {
+      "image": "technigmaai/glm-5.3-flash-gb10-tp2-native:v0.2.0",
+      "labels": {
+        "io.technigmaai.profile": "v0.2.0"
+      },
+      "environment": {
+        "SELF_TEST": "0",
+        "TORCH_EXTENSIONS_DIR": "/root/.cache/torch_extensions-v0.2.0",
+        "VLLM_ARX_TWO_SHOT_MAX_KB": "${VLLM_ARX_TWO_SHOT_MAX_KB:-2048}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/pr92/arx.py",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arx.py",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/pr92/arx_vllm.cu",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arx_vllm.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "${DEPLOY_ROOT:?Set DEPLOY_ROOT in .env}/profiles/patches/pr92/arxbig.cu",
+          "target": "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/arxbig.cu",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    }
+  }
+}
