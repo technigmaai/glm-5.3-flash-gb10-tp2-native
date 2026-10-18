@@ -2,8 +2,10 @@
 set -euo pipefail
 DEPLOY=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$DEPLOY"
-[[ -f .env ]] || { echo 'Copy .env.example to .env and configure this node first.' >&2; exit 1; }
-set -a; source .env; set +a
+NODE_ENV=.env
+if [[ -n ${GLM53_PROFILE:-} && -f .env.${GLM53_PROFILE} ]]; then NODE_ENV=.env.${GLM53_PROFILE}; fi
+[[ -f "$NODE_ENV" ]] || { echo 'Copy .env.example to .env and configure this node first.' >&2; exit 1; }
+set -a; source "$NODE_ENV"; set +a
 PROJECT_NAME=${PROJECT_NAME:-glm53-native}
 MODEL_COMPOSE=compose.models-local.yaml
 [[ -z ${MODEL_ID:-} ]] || MODEL_COMPOSE=compose.models-hf.yaml
@@ -76,5 +78,5 @@ case "$cmd" in
     if [[ "$node" == head || "$node" == worker ]]; then shift || true; else node=head; fi
     if [[ "$node" == worker && "$ROLE" == head ]]; then peer_cluster node-logs "$@"; else compose logs "$@"; fi
     ;;
-  *) echo 'Use root start.sh/stop.sh/restart.sh/status.sh/tail-log.sh/check.sh/sync-repo.sh/verify.sh. Mutations require --approved.' >&2; exit 2 ;;
+  *) echo 'Use ./launchers/launch.sh for the operator menu and commands.' >&2; exit 2 ;;
 esac

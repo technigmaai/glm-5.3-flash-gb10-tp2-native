@@ -24,8 +24,6 @@ class LayoutOperations(unittest.TestCase):
         self.root.mkdir()
         (self.root / 'scripts').mkdir()
         shutil.copy2(ROOT / 'scripts/cluster.sh', self.root / 'scripts/cluster.sh')
-        for name in ['start.sh', 'stop.sh', 'restart.sh', 'status.sh', 'tail-log.sh', 'check.sh', 'sync-repo.sh', 'verify.sh']:
-            shutil.copy2(ROOT / name, self.root / name)
         self.trace = Path(self.temp.name) / 'trace'
         self.bin = Path(self.temp.name) / 'bin'
         self.bin.mkdir()
@@ -37,13 +35,11 @@ class LayoutOperations(unittest.TestCase):
         self.env = dict(os.environ, PATH=str(self.bin) + ':' + os.environ['PATH'], TRACE=str(self.trace))
 
     def run_root(self, name, *args):
-        # The public lifecycle wrappers now use profilectl.py. Keep coverage of
-        # the retained low-level cluster implementation independently.
-        if name in ('start.sh', 'stop.sh', 'restart.sh', 'status.sh'):
-            return subprocess.run(['bash', str(self.root / 'scripts/cluster.sh'),
-                                   name[:-3], *args], cwd='/', env=self.env,
-                                  capture_output=True, text=True)
-        return subprocess.run(['bash', str(self.root / name), *args], cwd='/', env=self.env, capture_output=True, text=True)
+        # Exercise retained implementation helpers independently of the single
+        # public entry point, which is covered by test_launcher.py.
+        action = {'tail-log.sh': 'logs', 'sync-repo.sh': 'sync'}.get(name, name[:-3])
+        return subprocess.run(['bash', str(self.root / 'scripts/cluster.sh'), action, *args],
+                              cwd='/', env=self.env, capture_output=True, text=True)
 
     def calls(self):
         return [line.decode().rstrip('\0').split('\0') for line in self.trace.read_bytes().splitlines()] if self.trace.exists() else []

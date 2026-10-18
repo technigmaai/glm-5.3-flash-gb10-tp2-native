@@ -3,7 +3,7 @@
 This layout change reuses the published ARM64 image; it does not rebuild it.
 The native entrypoint and pinned overlays are supplied through repository bind
 mounts. See [source provenance and licenses](../THIRD_PARTY.md), the
-[deployment guide](../docs/DEPLOYMENT.md#image-rebuild-and-source-maintenance)
+[deployment guide](../docs/REFERENCE.md#image-rebuild-and-source-maintenance)
 and [source pins](../manifests/source.json).
 
 To reconstruct the pinned base on a compatible ARM64 GB10 build host:

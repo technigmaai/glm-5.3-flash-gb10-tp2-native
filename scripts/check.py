@@ -17,7 +17,7 @@ def main():
     manifest = json.loads((root / 'manifests/source.json').read_text())
     for name, expected in manifest['files'].items():
         assert hashlib.sha256((root / name).read_bytes()).hexdigest() == expected, name
-    for name in ('files/entrypoint.sh', 'scripts/cluster.sh', 'scripts/legacy.sh', 'start.sh', 'stop.sh', 'restart.sh', 'status.sh', 'tail-log.sh', 'check.sh', 'sync-repo.sh', 'verify.sh'):
+    for name in ('files/entrypoint.sh', 'scripts/cluster.sh', 'scripts/legacy.sh', 'launchers/launch.sh'):
         subprocess.run(['bash', '-n', str(root / name)], check=True)
     rendered = subprocess.check_output(compose_command(root, settings) +
         ['config', '--format', 'json'], text=True)

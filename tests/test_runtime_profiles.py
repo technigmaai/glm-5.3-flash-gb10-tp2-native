@@ -156,7 +156,7 @@ class Recipes(unittest.TestCase):
         self.assertEqual(len({s['config_digest'] for s in versions.values()}), 6)
         for v, spec in versions.items():
             self.assertTrue(spec['image'].endswith(':' + v))
-            self.assertTrue((ROOT / 'launchers' / (v + '.sh')).is_file())
+        self.assertEqual([p.name for p in (ROOT / 'launchers').glob('*.sh')], ['launch.sh'])
 
     def test_recipe_mounts_are_self_contained_unique_and_read_only(self):
         manifest = json.loads((ROOT / 'manifests/source.json').read_text())['files']
