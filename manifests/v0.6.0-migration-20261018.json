@@ -1,0 +1,93 @@
+{
+  "validated_on": "2026-10-18",
+  "hardware": "Two Linux ARM64 NVIDIA GB10 nodes; native TP2; one container per node",
+  "image_version": "v0.6.0",
+  "image_index_digest": "sha256:da020a406cb2f6699b9ceef35dd5b7d0e760eb7b2601809596e9842f7ba719ce",
+  "completed_at_utc": "2026-10-18T07:19:33Z",
+  "settings": {
+    "max_model_len": 1047552,
+    "max_num_batched_tokens": 6144,
+    "max_num_seqs": 16,
+    "kv_cache_memory_bytes_per_gpu": 7516192768,
+    "display_memory_bytes_per_gpu": 1879048192,
+    "kv_cache_dtype": "fp8_e4m3",
+    "image_limit": 32,
+    "video_limit": 0
+  },
+  "cpu_regression_tests": {
+    "passed": 127,
+    "actual_compose_renders": 6,
+    "scope": "Publication candidate including the generated branding assets and responsive menu layout"
+  },
+  "two_node_configuration_checks": {
+    "versions": [
+      "v0.1.0",
+      "v0.2.0",
+      "v0.3.0",
+      "v0.4.0",
+      "v0.5.0",
+      "v0.6.0"
+    ],
+    "checks": [
+      "pinned image identity",
+      "source integrity",
+      "Compose configuration",
+      "model files and symlinks",
+      "head/worker agreement"
+    ],
+    "passed": true
+  },
+  "terminal_menu": {
+    "tested_over_ssh": true,
+    "arrow_key_version_selection": true,
+    "cancelled_switch_without_mutation": true,
+    "cluster_status": true
+  },
+  "inference": {
+    "aliases_passed": 4,
+    "smoke_checks_passed": 9,
+    "checks": [
+      "model identity",
+      "thinking enabled",
+      "thinking disabled",
+      "known fact",
+      "parsed tool call",
+      "tool continuation with reasoning",
+      "single image table question",
+      "exact output token limit",
+      "context limit rejection"
+    ],
+    "streaming_concurrency": {
+      "submitted": 16,
+      "completed": 16,
+      "peak_running": 16.0,
+      "completion_tokens_each": 256,
+      "preemptions": 0.0,
+      "metrics_errors": [],
+      "elapsed_seconds_range": [
+        13.35,
+        21.75
+      ]
+    }
+  },
+  "containers_after_tests": {
+    "head": {
+      "healthy": true,
+      "restarts": 0,
+      "started_at": "2026-10-18T07:14:31.24815954Z",
+      "version": "v0.6.0"
+    },
+    "worker": {
+      "healthy": true,
+      "restarts": 0,
+      "started_at": "2026-10-18T07:14:32.852847452Z",
+      "version": "v0.6.0"
+    }
+  },
+  "limitations": [
+    "Live GPU inference was tested on v0.6.0 only; the other five image versions passed configuration checks.",
+    "Short prompts and one image were tested; arbitrary million-token accuracy and maximum image counts or resolutions were not tested in this run.",
+    "These operator settings are not fresh-install defaults or a performance ranking."
+  ],
+  "runtime_source_commit": "11fd361e5cd54e79191c794211e31a400f17a6a2"
+}
