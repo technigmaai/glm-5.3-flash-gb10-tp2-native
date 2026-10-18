@@ -8,10 +8,11 @@ Run from the **head node**. The terminal menu uses Up/Down (or `j`/`k`) and Ente
 Esc or `q` goes back. A numbered menu is available on basic terminals. Start,
 restart and stop show the operation before interrupting both model ranks.
 
-The ASCII circuit-head logo is generated from the Technigma AI artwork. It sits
-beside the menu at normal terminal sizes and grows in larger windows. Small
-terminals keep a compact name/tagline layout. No image converter is needed on
-either cluster node; the [branding assets](../files/branding/README.md) are included.
+The ASCII circuit-head logo is generated from the Technigma AI artwork, with a
+large ASCII `Technigma AI` wordmark beside it. Both adapt to terminal space while
+keeping the menu usable. Small terminals keep a compact name/tagline layout.
+No image or text converter is needed on either cluster node; the
+[branding assets](../files/branding/README.md) are included.
 
 Choose **Start / switch image version**, then select one of v0.1.0–v0.6.0.
 The selection includes the exact image and matching repository source overlays.
