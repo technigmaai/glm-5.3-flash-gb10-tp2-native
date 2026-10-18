@@ -81,6 +81,12 @@ Existing `.env` files are protected. Setup does not start containers or apply
 firewall rules. Use the [migration guide](https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native/blob/main/docs/LAYOUT_MIGRATION.md)
 for an existing deployment.
 
+Each node's private `.env` is shared across versions by default. Separate files
+are optional: a complete `.env.v0.6.0` on each node takes precedence when v0.6.0
+is selected; absent version files fall back to `.env`. See the
+[configuration instructions](https://github.com/technigmaai/glm-5.3-flash-gb10-tp2-native/blob/main/docs/DEPLOYMENT.md#configuration-files-for-image-versions)
+for the copy, edit and validation steps. Private settings stay out of GitHub.
+
 Open the **single terminal launcher**:
 
 ```bash

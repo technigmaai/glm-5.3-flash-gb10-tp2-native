@@ -172,12 +172,55 @@ batch shapes can require a new optimized snapshot and a slower first load.
 The operator's recorded v0.6.0 settings (16 slots / 7 GiB KV) are an observation,
 not the fresh-install default or a universal capacity recommendation.
 
-Optional complete `.env.v0.1.0` through `.env.v0.6.0` files can hold per-version
-serving settings; absent files fall back to `.env`. Keep node identity, project,
-container name, peer path and lifecycle lock/log directory consistent with the
-base file. The launcher never writes these optional files or edits `.env` to
-switch images. Original v0.1.0 forces ARX two-shot off; patched versions read the
-explicit per-node setting and default to 2048 KiB when it is omitted.
+### Configuration files for image versions
+
+**A separate `.env` for every image version is optional.** Each node needs its
+own base `.env` in the repository root. By default, all image versions share
+that node's base settings; choosing a version selects its image and matching
+source overlays automatically.
+
+For a selected version, the launcher reads files in this order:
+
+| Selected version | File used on each node |
+|---|---|
+| `v0.6.0`, with `.env.v0.6.0` present | That node's `.env.v0.6.0` |
+| `v0.6.0`, without `.env.v0.6.0` | That node's `.env` |
+| Any other version | Its `.env.<version>` if present, otherwise `.env` |
+
+To keep different serving settings for v0.6.0, run these commands from the
+repository root **on both nodes**, using each node's own existing `.env`:
+
+```bash
+cp -p .env .env.v0.6.0
+chmod 600 .env.v0.6.0
+${EDITOR:-nano} .env.v0.6.0
+```
+
+Skip the copy if the version file already exists. A version file must be a
+**complete configuration**, not a partial override. For example, change
+`MAX_NUM_BATCHED_TOKENS`, `MAX_NUM_SEQS` or `KV_CACHE_MEMORY` consistently on
+both nodes. Keep each node's `ROLE`, `NODE_RANK` and network settings from its
+own base file; do not copy the head's configuration onto the worker. Node
+identity, project, container name, peer path and lifecycle lock/log directory
+must remain consistent with the base file.
+
+On the head, validate both nodes before applying the settings:
+
+```bash
+./launchers/launch.sh check --version v0.6.0
+./launchers/launch.sh start --version v0.6.0 --dry-run
+./launchers/launch.sh restart --version v0.6.0 --approved
+```
+
+Restart interrupts both ranks and applies changes even when v0.6.0 is already
+running. Use `start --version v0.6.0 --approved` when switching from another
+version. To return a version to shared settings, remove or move aside its
+`.env.<version>` file on both nodes, check again, then restart deliberately.
+
+Private `.env` and `.env.<version>` files are ignored by Git. The launcher never
+creates the optional version files or edits `.env` to switch images. Original
+v0.1.0 forces ARX two-shot off; patched versions read the explicit per-node
+setting and default to 2048 KiB when it is omitted.
 
 ## Troubleshooting
 

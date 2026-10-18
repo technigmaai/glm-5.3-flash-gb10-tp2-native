@@ -8,6 +8,11 @@ Run from the **head node**. The terminal menu uses Up/Down (or `j`/`k`) and Ente
 Esc or `q` goes back. A numbered menu is available on basic terminals. Start,
 restart and stop show the operation before interrupting both model ranks.
 
+The ASCII circuit-head logo is generated from the Technigma AI artwork. It sits
+beside the menu at normal terminal sizes and grows in larger windows. Small
+terminals keep a compact name/tagline layout. No image converter is needed on
+either cluster node; the [branding assets](../files/branding/README.md) are included.
+
 Choose **Start / switch image version**, then select one of v0.1.0–v0.6.0.
 The selection includes the exact image and matching repository source overlays.
 See [release contents](../VERSIONS.md) before choosing an experimental version.
@@ -42,6 +47,11 @@ changes. Stop and Restart infer the recognized running version when none is supp
 An explicit `--version` is clearest for command-line Start. If omitted, Start
 uses `RUNTIME_VERSION` from the base `.env`, defaulting to v0.1.0. Check follows
 the same default; `check --all` requires every image on both nodes.
+
+Each node's `.env` is shared across image versions by default. Optional complete
+`.env.<version>` files provide separate serving settings; see
+[configuration files for image versions](../docs/DEPLOYMENT.md#configuration-files-for-image-versions)
+for the lookup rule and commands to create and validate them on both nodes.
 
 The former root scripts and per-version shell scripts have been consolidated
 into this file. Internal Python and shell helpers remain under `scripts/`.

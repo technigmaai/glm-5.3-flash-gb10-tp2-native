@@ -120,6 +120,11 @@ Validation must be read with the image, settings, workload and date it describes
 | Original C4/C6 results | The original runtime's stated smoke, concurrency and tool/reasoning results. |
 | v0.6.0 deployment observation | Both ranks healthy with zero restarts; 14 sampling/trio patch hashes matched recorded payloads. |
 | Earlier v0.6.0 activation record | Six short sequential smoke checks; not a sampling-distribution, long-context or performance qualification. |
+| [v0.6.0 migration checks, 2026-10-18](manifests/v0.6.0-migration-20261018.json) | Four API aliases, 9/9 smoke checks including tools/reasoning and one image, and 16 simultaneous 256-token streams; zero preemptions and zero container restarts. |
+
+The migration checks restarted both ranks through the unified launcher using
+the fixed v0.6.0 tag and repository-owned recipe. All six versions passed
+two-node configuration checks; live GPU inference in this run covered v0.6.0.
 
 The observed v0.6.0 deployment used 1,047,552 context, 6,144 batched tokens,
 16 sequence slots and 7 GiB logical KV per GPU, including 1.75 GiB display backing.

@@ -115,6 +115,52 @@ class Launcher(unittest.TestCase):
         self.assertIn('Technigma AI', text)
         self.assertIn('DECODE. AUTOMATE. EVOLVE.', text)
 
+    def test_standard_terminal_shows_the_logo_and_all_main_actions(self):
+        art, column, _, option_row = launcher.screen_layout(24, 80)
+        self.assertGreaterEqual(len(art), 19)
+        self.assertGreaterEqual(80 - column - 2, 38)
+        self.assertGreaterEqual(24 - option_row - 6, 9)
+        self.assertTrue(all(line.isascii() and len(line) < column for line in art))
+
+    def test_large_terminal_uses_the_largest_generated_logo(self):
+        art, _, _, _ = launcher.screen_layout(40, 120)
+        self.assertEqual(art, launcher.logo(52))
+        self.assertGreater(len(art), len(launcher.logo(34)))
+
+    def test_small_terminal_keeps_controls_without_an_oversized_logo(self):
+        art, column, title_row, option_row = launcher.screen_layout(15, 60)
+        self.assertFalse(art)
+        self.assertEqual(column, 1)
+        self.assertLess(title_row, option_row)
+        self.assertLess(option_row, 15 - 2)
+
+    def test_resize_and_arrow_selection_keep_every_draw_inside_the_terminal(self):
+        import curses
+
+        class Screen:
+            size = (40, 120)
+            keys = iter((curses.KEY_RESIZE, curses.KEY_DOWN, '\n'))
+
+            def erase(self): pass
+            def keypad(self, enabled): pass
+            def refresh(self): pass
+            def getmaxyx(self): return self.size
+
+            def addnstr(inner, y, x, text, length, style):
+                self.assertGreaterEqual(y, 0)
+                self.assertGreaterEqual(x, 0)
+                self.assertLess(y, inner.size[0] - 1)
+                self.assertLessEqual(x + min(len(text), length), inner.size[1] - 1)
+
+            def get_wch(inner):
+                key = next(inner.keys)
+                if key == curses.KEY_RESIZE:
+                    inner.size = (24, 80)
+                return key
+
+        with patch.object(curses, 'curs_set'):
+            self.assertEqual(launcher._curses_choice(Screen(), 'Choose', ['First', 'Second']), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

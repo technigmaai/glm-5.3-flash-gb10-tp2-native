@@ -6,20 +6,32 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
+import textwrap
 
 import setup
 from runtime_profiles import catalog
 
 ROOT = Path(__file__).resolve().parents[1]
 BRAND = (
-    "       .------------.       Technigma AI",
-    "     .'      .--o---. `.     DECODE. AUTOMATE. EVOLVE.",
-    "    /   .--. |      |  \\",
-    "   |    '--'-+--o   |   >",
-    "   |     .---|  .-o-'  /",
-    "    '.___|   |__|___.-'",
-    "         '-------'          GLM-5.3-Flash | Native GB10 TP2",
+    'Technigma AI',
+    'DECODE. AUTOMATE. EVOLVE.',
+    'GLM-5.3-Flash | Native GB10 TP2',
 )
+
+
+def logo(width):
+    path = ROOT / 'files/branding' / f'technigma-ai-{width}.txt'
+    return tuple(path.read_text(encoding='ascii').strip('\n').splitlines())
+
+
+def screen_layout(height, width):
+    # Put the image beside the controls so a larger logo does not hide actions.
+    for size in (52, 44, 34):
+        art = logo(size)
+        column = max(map(len, art)) + 4
+        if height >= 20 and len(art) <= height - 3 and width - column - 2 >= 38:
+            return art, column, 6, 8
+    return (), 1, 4, 6
 
 
 def parser(root=ROOT):
@@ -115,29 +127,35 @@ def _curses_choice(screen, title, options):
     while True:
         screen.erase()
         height, width = screen.getmaxyx()
-        def line(y, text, style=0):
+        art, column, title_row, option_row = screen_layout(height, width)
+        def line(y, text, style=0, x=None):
+            x = column if x is None else x
             if 0 <= y < height - 1:
                 try:
-                    screen.addnstr(y, 1, text, max(0, width - 2), style)
+                    screen.addnstr(y, x, text, max(0, width - x - 1), style)
                 except curses.error:
                     pass
-        compact = height < 24 or width < 64
-        if compact:
-            line(0, 'Technigma AI | GLM-5.3-Flash', curses.A_BOLD)
-            title_row = 2
+        if art:
+            for row, text in enumerate(art, 1):
+                line(row, text, curses.A_BOLD, x=1)
+            line(1, BRAND[0], curses.A_BOLD)
+            line(2, BRAND[1])
+            line(4, BRAND[2])
         else:
             for row, text in enumerate(BRAND):
                 line(row, text, curses.A_BOLD if row == 0 else 0)
-            title_row = len(BRAND) + 1
         line(title_row, title)
-        option_row = title_row + 2
-        page = max(1, height - option_row - 3)
+        page = max(1, height - option_row - 6)
         first = max(0, index - page + 1)
         for row, option in enumerate(options[first:first + page], option_row):
             selected = first + row - option_row == index
             line(row, ('> ' if selected else '  ') + option,
                  curses.A_REVERSE if selected else 0)
-        line(height - 2, 'Up/Down or j/k: move | Enter: select | Esc/q: back')
+        if len(options[index]) > width - column - 3:
+            detail = textwrap.wrap(options[index], max(1, width - column - 2))
+            for row, text in enumerate(detail[:2], height - 5):
+                line(row, text)
+        line(height - 2, 'Up/Down or j/k: move | Enter: select | Esc/q: back', x=1)
         screen.refresh()
         key = screen.get_wch()
         if key in (curses.KEY_UP, 'k'):
@@ -160,7 +178,7 @@ def choose(title, options):
             pass
         else:
             return curses.wrapper(_curses_choice, title, options)
-    print('\n' + '\n'.join(BRAND) + '\n\n' + title)
+    print('\n' + '\n'.join(logo(44)) + '\n\n' + '\n'.join(BRAND) + '\n\n' + title)
     for i, option in enumerate(options, 1):
         print(f'  {i}. {option}')
     while True:
